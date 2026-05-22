@@ -3,11 +3,40 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 html,
 body {
-  background: #fafaf9;
-  color: #1c1917;
+  background: #09090b; /* zinc-950 */
+  color: #e4e4e7; /* zinc-200 */
+}
+
+/* Tame default scrollbars on dark surfaces (WebKit). */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #09090b;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272a; /* zinc-800 */
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46; /* zinc-700 */
+}
+
+/* react-force-graph's HTML tooltip is appended to body; make it readable on dark. */
+.graph-tooltip,
+.scene-tooltip {
+  background: #18181b !important; /* zinc-900 */
+  color: #e4e4e7 !important;
+  border: 1px solid #27272a !important;
+  border-radius: 6px !important;
+  padding: 8px 10px !important;
+  font-size: 12px !important;
+  max-width: 320px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
 }

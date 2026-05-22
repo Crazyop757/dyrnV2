@@ -1,34 +1,44 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import TopicBox from "@/components/TopicBox";
 import ConceptOverview from "@/components/ConceptOverview";
 import PapersList from "@/components/PapersList";
 import RelationsGraph from "@/components/RelationsGraph";
 import ChatBox from "@/components/ChatBox";
 import SetupBanner from "@/components/SetupBanner";
+import Sidebar from "@/components/Sidebar";
 import { discoverModels, search, type ModelChoice } from "@/lib/vane";
 import { fetchGraph, fetchPapers } from "@/lib/researchApi";
-import type { GraphResponse, Paper, VaneAnswer } from "@/lib/types";
+import type { ChatTurn, GraphResponse, Paper, VaneAnswer } from "@/lib/types";
+import {
+  createSession,
+  loadSession,
+  saveSession,
+  type Session,
+} from "@/lib/sessions";
 
 export default function Page() {
   const [models, setModels] = useState<ModelChoice | null>(null);
   const [modelsLoading, setModelsLoading] = useState(true);
 
-  const [topic, setTopic] = useState<string | null>(null);
+  // The full session in view. `null` = blank slate (no topic submitted yet).
+  // The page owns this so the sidebar can swap it out wholesale on select.
+  const [session, setSession] = useState<Session | null>(null);
   const [running, setRunning] = useState(false);
 
-  const [overview, setOverview] = useState<VaneAnswer | null>(null);
   const [overviewErr, setOverviewErr] = useState<string | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(false);
-
-  const [papers, setPapers] = useState<Paper[]>([]);
   const [papersErr, setPapersErr] = useState<string | null>(null);
   const [papersLoading, setPapersLoading] = useState(false);
-
-  const [graph, setGraph] = useState<GraphResponse | null>(null);
   const [graphErr, setGraphErr] = useState<string | null>(null);
   const [graphLoading, setGraphLoading] = useState(false);
+
+  // runSearch resolves async pieces and then patches them onto whatever
+  // session is current. We capture the id at start so a late response from a
+  // previous topic can't smash a session the user has since switched away
+  // from.
+  const activeRunId = useRef<string | null>(null);
 
   useEffect(() => {
     discoverModels()
@@ -36,25 +46,60 @@ export default function Page() {
       .finally(() => setModelsLoading(false));
   }, []);
 
-  const runSearch = async (t: string) => {
+  // Persist the session every time it changes (chat turns, fetched data, etc.).
+  useEffect(() => {
+    if (!session) return;
+    saveSession(session);
+  }, [session]);
+
+  const patchSession = (patch: Partial<Session>) => {
+    setSession((curr) => (curr ? { ...curr, ...patch, updatedAt: Date.now() } : curr));
+  };
+
+  const handleSelect = (id: string) => {
+    const s = loadSession(id);
+    if (!s) return;
+    activeRunId.current = null;
+    setOverviewErr(null);
+    setOverviewLoading(false);
+    setPapersErr(null);
+    setPapersLoading(false);
+    setGraphErr(null);
+    setGraphLoading(false);
+    setRunning(false);
+    setSession(s);
+  };
+
+  const handleNew = () => {
+    activeRunId.current = null;
+    setOverviewErr(null);
+    setOverviewLoading(false);
+    setPapersErr(null);
+    setPapersLoading(false);
+    setGraphErr(null);
+    setGraphLoading(false);
+    setRunning(false);
+    setSession(null);
+  };
+
+  const runSearch = async (topic: string) => {
     if (!models) return;
-    setTopic(t);
+    const fresh = createSession(topic);
+    activeRunId.current = fresh.id;
+    setSession(fresh);
     setRunning(true);
 
-    // Reset all sections.
-    setOverview(null);
     setOverviewErr(null);
     setOverviewLoading(true);
-    setPapers([]);
     setPapersErr(null);
     setPapersLoading(true);
-    setGraph(null);
     setGraphErr(null);
     setGraphLoading(false);
 
-    // Concept overview and papers run in parallel.
+    const stillActive = () => activeRunId.current === fresh.id;
+
     const overviewP = search({
-      query: t,
+      query: topic,
       models,
       sources: ["academic", "web"],
       systemInstructions:
@@ -62,16 +107,22 @@ export default function Page() {
         "overview (3-5 short paragraphs) of what the topic is, the main approaches, " +
         "and the key open questions. Cite sources inline.",
     })
-      .then((a) => setOverview(a))
-      .catch((e) => setOverviewErr(e.message || String(e)))
-      .finally(() => setOverviewLoading(false));
+      .then((a) => {
+        if (stillActive()) patchSession({ overview: a });
+      })
+      .catch((e) => {
+        if (stillActive()) setOverviewErr(e.message || String(e));
+      })
+      .finally(() => {
+        if (stillActive()) setOverviewLoading(false);
+      });
 
-    const papersP = fetchPapers(t)
+    const papersP = fetchPapers(topic)
       .then(async (resp) => {
-        setPapers(resp.papers);
+        if (!stillActive()) return;
+        patchSession({ papers: resp.papers });
         setPapersLoading(false);
 
-        // Only S2 ids can seed the graph.
         const seedIds = resp.papers
           .filter((p) => !p.id.startsWith("OA:"))
           .slice(0, 6)
@@ -83,46 +134,80 @@ export default function Page() {
         setGraphLoading(true);
         try {
           const g = await fetchGraph(seedIds);
-          setGraph(g);
+          if (stillActive()) patchSession({ graph: g });
         } catch (e: any) {
-          setGraphErr(e.message || String(e));
+          if (stillActive()) setGraphErr(e.message || String(e));
         } finally {
-          setGraphLoading(false);
+          if (stillActive()) setGraphLoading(false);
         }
       })
       .catch((e) => {
-        setPapersErr(e.message || String(e));
-        setPapersLoading(false);
+        if (stillActive()) {
+          setPapersErr(e.message || String(e));
+          setPapersLoading(false);
+        }
       });
 
     await Promise.allSettled([overviewP, papersP]);
-    setRunning(false);
+    if (stillActive()) setRunning(false);
   };
 
+  const handleTurnsChange = (next: ChatTurn[]) => {
+    patchSession({ chat: next });
+  };
+
+  const topic: string | null = session?.topic ?? null;
+  const overview: VaneAnswer | null = session?.overview ?? null;
+  const papers: Paper[] = session?.papers ?? [];
+  const graph: GraphResponse | null = session?.graph ?? null;
+  const chat: ChatTurn[] = session?.chat ?? [];
+
   return (
-    <main className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-      <header>
-        <h1 className="text-3xl font-bold">Research MVP</h1>
-        <p className="text-stone-600 mt-1 text-sm">
-          Type a topic. Get a concept overview, related papers, a graph of how they relate, and a chat box for
-          follow-up questions.
-        </p>
-      </header>
+    <div className="flex min-h-screen bg-zinc-950 text-zinc-100">
+      <Sidebar activeId={session?.id ?? null} onSelect={handleSelect} onNew={handleNew} />
 
-      {!modelsLoading && !models && <SetupBanner />}
+      <main className="flex-1 overflow-x-hidden">
+        <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
+          <header>
+            <h1 className="text-3xl font-bold tracking-tight">Research</h1>
+            <p className="text-zinc-400 mt-1 text-sm">
+              Type a topic. Get an overview, related papers, a relations graph, and a follow-up
+              chat — all kept in this browser as a chat you can return to.
+            </p>
+          </header>
 
-      <TopicBox onSubmit={runSearch} disabled={running || !models} />
+          {!modelsLoading && !models && <SetupBanner />}
 
-      {topic && (
-        <>
-          <ConceptOverview loading={overviewLoading} error={overviewErr} answer={overview} />
-          <PapersList loading={papersLoading} error={papersErr} papers={papers} />
-          <RelationsGraph loading={graphLoading} error={graphErr} data={graph} />
-          {models && (
-            <ChatBox models={models} overview={overview} papers={papers} topic={topic} />
+          <TopicBox onSubmit={runSearch} disabled={running || !models} />
+
+          {topic && (
+            <>
+              <ConceptOverview loading={overviewLoading} error={overviewErr} answer={overview} />
+              <PapersList loading={papersLoading} error={papersErr} papers={papers} />
+              <RelationsGraph loading={graphLoading} error={graphErr} data={graph} />
+              {models && (
+                <ChatBox
+                  models={models}
+                  overview={overview}
+                  papers={papers}
+                  topic={topic}
+                  turns={chat}
+                  onTurnsChange={handleTurnsChange}
+                />
+              )}
+            </>
           )}
-        </>
-      )}
-    </main>
+
+          {!topic && (
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-6 py-10 text-center">
+              <p className="text-zinc-300 text-base">Start a new chat with a research topic above.</p>
+              <p className="text-zinc-500 text-xs mt-2">
+                Past chats appear in the sidebar and pick up where you left off.
+              </p>
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
   );
 }

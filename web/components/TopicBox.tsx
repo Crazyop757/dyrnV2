@@ -25,13 +25,13 @@ export default function TopicBox({ initialTopic = "", disabled, onSubmit }: Prop
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="Enter a research topic (e.g. graph neural networks for drug discovery)"
-        className="flex-1 border border-stone-300 rounded-md px-4 py-3 text-base focus:outline-none focus:border-stone-600"
+        className="flex-1 bg-zinc-900 border border-zinc-800 rounded-md px-4 py-3 text-base text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600"
         disabled={disabled}
       />
       <button
         type="submit"
         disabled={disabled || !value.trim()}
-        className="px-6 py-3 bg-stone-900 text-white rounded-md font-medium disabled:bg-stone-400"
+        className="px-6 py-3 bg-zinc-100 text-zinc-900 rounded-md font-medium hover:bg-white disabled:bg-zinc-800 disabled:text-zinc-500 transition-colors"
       >
         Search
       </button>

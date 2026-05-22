@@ -9,6 +9,8 @@ type Props = {
   overview: VaneAnswer | null;
   papers: Paper[];
   topic: string;
+  turns: ChatTurn[];
+  onTurnsChange: (next: ChatTurn[]) => void;
 };
 
 function buildContext(overview: VaneAnswer | null, papers: Paper[], topic: string): string {
@@ -33,8 +35,7 @@ function buildContext(overview: VaneAnswer | null, papers: Paper[], topic: strin
   return parts.join("\n\n");
 }
 
-export default function ChatBox({ models, overview, papers, topic }: Props) {
-  const [turns, setTurns] = useState<ChatTurn[]>([]);
+export default function ChatBox({ models, overview, papers, topic, turns, onTurnsChange }: Props) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,8 +45,8 @@ export default function ChatBox({ models, overview, papers, topic }: Props) {
     if (!q || busy) return;
     setBusy(true);
     setError(null);
-    const newTurns: ChatTurn[] = [...turns, { role: "human", text: q }];
-    setTurns(newTurns);
+    const afterUser: ChatTurn[] = [...turns, { role: "human", text: q }];
+    onTurnsChange(afterUser);
     setInput("");
 
     try {
@@ -57,7 +58,10 @@ export default function ChatBox({ models, overview, papers, topic }: Props) {
         history,
         systemInstructions: buildContext(overview, papers, topic),
       });
-      setTurns([...newTurns, { role: "assistant", text: answer.message, sources: answer.sources }]);
+      onTurnsChange([
+        ...afterUser,
+        { role: "assistant", text: answer.message, sources: answer.sources },
+      ]);
     } catch (e: any) {
       setError(e.message || String(e));
     } finally {
@@ -67,20 +71,27 @@ export default function ChatBox({ models, overview, papers, topic }: Props) {
 
   return (
     <section>
-      <h2 className="text-xl font-semibold mb-3">Ask follow-ups</h2>
-      <div className="space-y-3 mb-3">
+      <h2 className="text-xl font-semibold mb-3 text-zinc-100">Ask follow-ups</h2>
+      <div className="space-y-4 mb-4">
         {turns.map((t, i) => (
-          <div key={i} className={t.role === "human" ? "text-stone-900" : "text-stone-700"}>
-            <div className="text-xs uppercase tracking-wide text-stone-500 mb-1">
+          <div
+            key={i}
+            className={`rounded-lg px-4 py-3 ${
+              t.role === "human"
+                ? "bg-zinc-800/60 border border-zinc-800"
+                : "bg-zinc-900/40 border border-zinc-800"
+            }`}
+          >
+            <div className="text-[11px] uppercase tracking-wide text-zinc-500 mb-1">
               {t.role === "human" ? "You" : "Assistant"}
             </div>
-            <div className="whitespace-pre-wrap leading-relaxed">{t.text}</div>
+            <div className="whitespace-pre-wrap leading-relaxed text-zinc-200">{t.text}</div>
             {t.role === "assistant" && t.sources && t.sources.length > 0 && (
-              <details className="text-xs mt-1">
-                <summary className="cursor-pointer text-stone-500">
+              <details className="text-xs mt-2">
+                <summary className="cursor-pointer text-zinc-400 hover:text-zinc-200">
                   Sources ({t.sources.length})
                 </summary>
-                <ol className="mt-1 list-decimal pl-5 space-y-1">
+                <ol className="mt-1 list-decimal pl-5 space-y-1 text-zinc-300">
                   {t.sources.map((s, j) => (
                     <li key={j}>
                       {s.metadata.url ? (
@@ -88,7 +99,7 @@ export default function ChatBox({ models, overview, papers, topic }: Props) {
                           href={s.metadata.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-blue-700 underline"
+                          className="text-sky-400 hover:text-sky-300 underline"
                         >
                           {s.metadata.title || s.metadata.url}
                         </a>
@@ -102,8 +113,8 @@ export default function ChatBox({ models, overview, papers, topic }: Props) {
             )}
           </div>
         ))}
-        {busy && <p className="text-stone-500 text-sm">Thinking…</p>}
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {busy && <p className="text-zinc-400 text-sm">Thinking…</p>}
+        {error && <p className="text-red-400 text-sm">{error}</p>}
       </div>
 
       <form
@@ -118,13 +129,13 @@ export default function ChatBox({ models, overview, papers, topic }: Props) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask anything about the topic, papers, or graph…"
-          className="flex-1 border border-stone-300 rounded-md px-4 py-3"
+          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-md px-4 py-3 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600"
           disabled={busy}
         />
         <button
           type="submit"
           disabled={busy || !input.trim()}
-          className="px-6 py-3 bg-stone-900 text-white rounded-md font-medium disabled:bg-stone-400"
+          className="px-6 py-3 bg-zinc-100 text-zinc-900 rounded-md font-medium disabled:bg-zinc-700 disabled:text-zinc-500 hover:bg-white transition-colors"
         >
           Ask
         </button>

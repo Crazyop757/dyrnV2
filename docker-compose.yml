@@ -1,0 +1,63 @@
+# Research MVP — orchestrates four services on one machine.
+#   vane          : Perplexica/Vane (bundled SearxNG) — concept overview + chat backend
+#   research-api  : Our FastAPI service — paper list + relations graph
+#   web           : Our Next.js frontend — the single page the user sees
+#
+# Usage:
+#   1. cp .env.example .env  and paste your OpenAI key
+#   2. docker compose up --build
+#   3. Open http://localhost:3000 once, finish Vane's setup screen (add OpenAI key)
+#   4. Open http://localhost:3001 to use the research MVP
+
+services:
+  vane:
+    image: itzcrazykns1337/vane:latest
+    container_name: research-vane
+    ports:
+      # Host port 3002 to avoid colliding with anything that may already be on
+      # 3000 on this machine. Inside the Docker network the container still
+      # listens on :3000, which is what the `web` service reaches.
+      - "3002:3000"
+    volumes:
+      - vane-data:/home/vane/data
+    restart: unless-stopped
+
+  research-api:
+    build:
+      context: ./research-api
+    container_name: research-api
+    ports:
+      - "8000:8000"
+    environment:
+      - SEMANTIC_SCHOLAR_API_KEY=${SEMANTIC_SCHOLAR_API_KEY:-}
+      - OPENALEX_EMAIL=${OPENALEX_EMAIL:-}
+      - CROSSREF_EMAIL=${CROSSREF_EMAIL:-}
+      - PUBMED_API_KEY=${PUBMED_API_KEY:-}
+    volumes:
+      - research-cache:/app/.cache
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./web
+      args:
+        # Public env vars baked into Next.js client bundle.
+        NEXT_PUBLIC_VANE_URL: http://localhost:3002
+        NEXT_PUBLIC_RESEARCH_API_URL: http://localhost:8000
+    container_name: research-web
+    ports:
+      - "3001:3000"
+    environment:
+      # Server-side env (used by Next.js API routes if any).
+      - VANE_URL=http://vane:3000
+      - RESEARCH_API_URL=http://research-api:8000
+    depends_on:
+      - vane
+      - research-api
+    restart: unless-stopped
+
+volumes:
+  vane-data:
+    name: research-vane-data
+  research-cache:
+    name: research-api-cache

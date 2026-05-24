@@ -44,6 +44,7 @@ def _to_dict(item: dict[str, Any]) -> dict[str, Any]:
         "arxiv_id": None,
         "pdf_url": None,
         "url": item.get("URL"),
+        "tldr": None,
         "source": "crossref",
     }
 

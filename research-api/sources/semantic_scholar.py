@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 BASE = "https://api.semanticscholar.org/graph/v1"
 PAPER_FIELDS = (
     "paperId,title,abstract,year,venue,authors.name,"
-    "citationCount,referenceCount,externalIds,openAccessPdf,url"
+    "citationCount,referenceCount,externalIds,openAccessPdf,url,tldr"
 )
 # S2 free tier is ~1 req/sec across endpoints. With a key the published limit
 # is ~100 req/sec — we sleep a small amount anyway to avoid bursting.
@@ -34,6 +34,7 @@ def _to_dict(p: dict[str, Any]) -> dict[str, Any]:
     """Normalize an S2 paper object to the shape our endpoints return."""
     ext = p.get("externalIds") or {}
     oa = p.get("openAccessPdf") or {}
+    tldr = p.get("tldr") or {}
     return {
         "id": p.get("paperId") or "",
         "title": p.get("title") or "(untitled)",
@@ -45,8 +46,9 @@ def _to_dict(p: dict[str, Any]) -> dict[str, Any]:
         "reference_count": p.get("referenceCount") or 0,
         "doi": ext.get("DOI"),
         "arxiv_id": ext.get("ArXiv"),
-        "pdf_url": oa.get("url"),
+        "pdf_url": oa.get("url") or None,
         "url": p.get("url"),
+        "tldr": tldr.get("text"),
         "source": "semantic_scholar",
     }
 

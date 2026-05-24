@@ -5,6 +5,8 @@ Endpoints:
   GET  /health
   GET  /papers?topic=...&limit=15   -> merged list of papers from 4 sources
   GET  /graph?ids=id1,id2,...       -> nodes/edges for the relations graph
+  POST /extract                     -> GROBID section extraction from PDFs
+  GET  /verify-gap?query=...        -> S2 search to verify a research gap
 """
 
 from __future__ import annotations
@@ -16,9 +18,11 @@ import re
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
+from extraction import extract_sections
 from graph import build_graph
 from sources.crossref import CrossRef
 from sources.openalex import OpenAlex
@@ -201,3 +205,44 @@ async def graph(
     # Cap to keep the response under 30s in the worst case.
     seed_ids = seed_ids[:8]
     return await build_graph(app.state.s2, seed_ids, top_n=top_n, min_edge=min_edge)
+
+
+class ExtractRequest(BaseModel):
+    papers: list[dict[str, Any]]
+
+
+@app.post("/extract")
+async def extract(body: ExtractRequest) -> dict[str, Any]:
+    """Extract limitations/future-work/conclusions from papers with open-access PDFs.
+
+    Sends each PDF to the GROBID service and parses TEI XML. Papers without
+    pdf_url are skipped — the caller should fall back to abstract-only analysis.
+    """
+    sections = await extract_sections(body.papers)
+    return {"sections": sections}
+
+
+@app.get("/verify-gap")
+async def verify_gap(
+    query: str = Query(..., min_length=2),
+) -> dict[str, Any]:
+    """Search Semantic Scholar for a gap query and return a confidence verdict."""
+    results = await app.state.s2.search_papers(query, limit=5)
+    total = len(results)
+
+    if total <= 2:
+        confidence = "confirmed"
+    elif total <= 10:
+        confidence = "partial"
+    else:
+        confidence = "unlikely"
+
+    return {
+        "query": query,
+        "total": total,
+        "confidence": confidence,
+        "papers": [
+            {"title": r["title"], "year": r.get("year"), "url": r.get("url")}
+            for r in results[:3]
+        ],
+    }

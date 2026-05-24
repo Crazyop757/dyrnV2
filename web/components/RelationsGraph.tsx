@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { GraphResponse } from "@/lib/types";
 
 // react-force-graph-2d uses canvas + window — must be client-only.
@@ -17,12 +17,13 @@ type Props = {
 const SEED_FILL = "#f8fafc";          // slate-50 — anchor papers, brightest on dark
 const NODE_FILL = "#94a3b8";          // slate-400 — neutral non-seed
 const HOVER_FILL = "#f87171";         // red-400 — focused element
+const HOVER_RING = "#fecaca";         // red-200 — bright outline around focused
 const NEIGHBOR_ACCENT = "#fbbf24";    // amber-400 — connected to focused
 const SEED_DIM = "rgba(248, 250, 252, 0.18)";
 const NODE_DIM = "rgba(148, 163, 184, 0.15)";
-const EDGE_BASE = "rgba(161, 161, 170, 0.18)";    // zinc-400 @ 18%
-const EDGE_DIM = "rgba(161, 161, 170, 0.05)";
-const EDGE_NEIGHBOR = "rgba(251, 191, 36, 0.85)";
+const EDGE_BASE = "rgba(161, 161, 170, 0.5)";    // zinc-400 @ 50% — clearly visible on dark
+const EDGE_DIM = "rgba(161, 161, 170, 0.08)";
+const EDGE_NEIGHBOR = "rgba(251, 191, 36, 0.95)";
 const LABEL_FILL = "#e4e4e7";         // zinc-200
 const LABEL_HOVER = "#fecaca";        // red-200
 const LABEL_HALO = "rgba(9, 9, 11, 0.85)";  // zinc-950 @ 85% — dark halo on dark bg
@@ -31,8 +32,9 @@ const CANVAS_BG = "#09090b"; // zinc-950 — matches page bg so the graph blends
 
 // Sizing
 const SEED_R = 3.2;
-const NODE_R_MIN = 1.3;
-const NODE_R_MAX = 2.4;
+const NODE_R_MIN = 1.4;
+const NODE_R_MAX = 2.6;
+const HOVER_SCALE = 1.8;     // hovered node grows so the focus is unmissable
 const SEED_HIT_R = 8;
 const NODE_HIT_R = 5;
 
@@ -46,19 +48,6 @@ export default function RelationsGraph({ loading, error, data }: Props) {
   const [hoverNode, setHoverNode] = useState<string | null>(null);
   const [hoverLink, setHoverLink] = useState<{ s: string; t: string } | null>(null);
   const fgRef = useRef<any>(null);
-
-  // Force a single canvas repaint when hover state changes. The simulation
-  // cools down (cooldownTicks=120) and stops painting on its own; without
-  // this, hover styling never appears once the layout has settled.
-  useEffect(() => {
-    const fg = fgRef.current;
-    if (!fg) return;
-    fg.resumeAnimation?.();
-    const id = requestAnimationFrame(() => {
-      fg.pauseAnimation?.();
-    });
-    return () => cancelAnimationFrame(id);
-  }, [hoverNode, hoverLink]);
 
   // react-force-graph mutates the data object. Build a stable copy each time
   // `data` changes; keys = `id` for nodes, `source`/`target` for links.
@@ -86,6 +75,10 @@ export default function RelationsGraph({ loading, error, data }: Props) {
     }
     return m;
   }, [data]);
+
+  // When an edge is hovered, light up its two endpoints too — gives spatial
+  // context to "which connection is this?".
+  const linkEndpoints: { s: string; t: string } | null = hoverLink;
 
   function nodeTooltip(n: any): string {
     const esc = (s: string) =>
@@ -146,22 +139,33 @@ export default function RelationsGraph({ loading, error, data }: Props) {
               nodeRelSize={3}
               cooldownTicks={120}
               d3VelocityDecay={0.35}
+              // Keep the canvas repainting after the engine cools down so hover
+              // state updates are reflected. The simulation itself stops
+              // applying forces (cooldownTicks=120) so the scene is static and
+              // continuous redraws of a static scene are not perceptible.
+              autoPauseRedraw={false}
               nodeLabel={nodeTooltip}
               linkLabel={linkTooltip}
               nodeCanvasObject={(node: any, ctx, scale) => {
                 const isSeed = !!node.is_seed;
                 const isHover = hoverNode === node.id;
+                const isLinkEndpoint =
+                  !!linkEndpoints &&
+                  (linkEndpoints.s === node.id || linkEndpoints.t === node.id);
                 const isNeighbor =
                   hoverNode != null &&
                   !isHover &&
                   !!neighbors.get(hoverNode)?.has(node.id);
-                const dim = hoverNode != null && !isHover && !isNeighbor;
+                const dim =
+                  (hoverNode != null && !isHover && !isNeighbor) ||
+                  (hoverLink != null && !isLinkEndpoint);
 
-                const r = nodeRadius(node);
+                const baseR = nodeRadius(node);
+                const r = isHover || isLinkEndpoint ? baseR * HOVER_SCALE : baseR;
 
                 ctx.beginPath();
                 ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
-                if (isHover) {
+                if (isHover || isLinkEndpoint) {
                   ctx.fillStyle = HOVER_FILL;
                 } else if (isSeed) {
                   ctx.fillStyle = dim ? SEED_DIM : SEED_FILL;
@@ -170,28 +174,34 @@ export default function RelationsGraph({ loading, error, data }: Props) {
                 }
                 ctx.fill();
 
-                // Amber ring marks neighbors of the focused node.
-                if (isNeighbor) {
+                // Bright outline around focused node makes it pop out from the
+                // surrounding amber-ringed neighbors.
+                if (isHover || isLinkEndpoint) {
+                  ctx.lineWidth = Math.max(1.6 / scale, 0.6);
+                  ctx.strokeStyle = HOVER_RING;
+                  ctx.stroke();
+                } else if (isNeighbor) {
                   ctx.lineWidth = Math.max(1.2 / scale, 0.5);
                   ctx.strokeStyle = NEIGHBOR_ACCENT;
                   ctx.stroke();
                 }
 
-                const showLabel = isHover || isNeighbor || scale > 3.8;
+                const showLabel = isHover || isLinkEndpoint || isNeighbor || scale > 3.8;
                 if (!showLabel) return;
 
                 const raw = (node.label || "") as string;
-                const max = isHover ? 80 : 36;
+                const big = isHover || isLinkEndpoint;
+                const max = big ? 80 : 36;
                 const txt = raw.length > max ? raw.slice(0, max - 1) + "…" : raw;
-                const size = isHover
+                const size = big
                   ? Math.max(12 / scale, 4.2)
                   : Math.max(9.5 / scale, 3.2);
-                ctx.font = `${isHover ? 600 : 400} ${size}px sans-serif`;
+                ctx.font = `${big ? 600 : 400} ${size}px sans-serif`;
                 ctx.textBaseline = "middle";
                 ctx.lineWidth = Math.max(3 / scale, 0.8);
                 ctx.strokeStyle = LABEL_HALO;
                 ctx.strokeText(txt, node.x + r + 2, node.y);
-                ctx.fillStyle = isHover ? LABEL_HOVER : LABEL_FILL;
+                ctx.fillStyle = big ? LABEL_HOVER : LABEL_FILL;
                 ctx.fillText(txt, node.x + r + 2, node.y);
               }}
               // Hit area scales with visible dot size. A uniform large radius
@@ -214,6 +224,7 @@ export default function RelationsGraph({ loading, error, data }: Props) {
                   const touches = src === hoverNode || tgt === hoverNode;
                   return touches ? EDGE_NEIGHBOR : EDGE_DIM;
                 }
+                if (hoverLink != null) return EDGE_DIM;
                 return EDGE_BASE;
               }}
               linkWidth={(l: any) => {
@@ -221,10 +232,10 @@ export default function RelationsGraph({ loading, error, data }: Props) {
                 const tgt = typeof l.target === "object" ? l.target.id : l.target;
                 const isHoverLink =
                   hoverLink && hoverLink.s === src && hoverLink.t === tgt;
-                const base = Math.max(0.3, (l.weight ?? 0) * 1.6);
-                if (isHoverLink) return base + 1.3;
+                const base = Math.max(0.7, (l.weight ?? 0) * 1.8);
+                if (isHoverLink) return base + 2.0;
                 if (hoverNode != null && (src === hoverNode || tgt === hoverNode)) {
-                  return base + 0.7;
+                  return base + 0.8;
                 }
                 return base;
               }}

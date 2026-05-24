@@ -52,6 +52,7 @@ def _to_dict(w: dict[str, Any]) -> dict[str, Any]:
         "arxiv_id": None,
         "pdf_url": pdf_url,
         "url": w.get("id"),
+        "tldr": None,
         "source": "openalex",
     }
 

@@ -11,6 +11,7 @@ export type Paper = {
   arxiv_id: string | null;
   pdf_url: string | null;
   url: string | null;
+  tldr: string | null;
   source: "semantic_scholar" | "openalex";
 };
 
@@ -42,6 +43,29 @@ export type VaneProvider = {
   name: string;
   chatModels: { key: string; name: string }[];
   embeddingModels: { key: string; name: string }[];
+};
+
+export type PaperSections = {
+  limitations: string | null;
+  future_work: string | null;
+  conclusions: string | null;
+};
+
+export type ExtractResponse = {
+  sections: Record<string, PaperSections>;
+};
+
+export type GapVerification = {
+  query: string;
+  total: number;
+  confidence: "confirmed" | "partial" | "unlikely";
+  papers: { title: string; year: number | null; url: string | null }[];
+};
+
+export type GapAnalysis = {
+  message: string;
+  sources: VaneSource[];
+  verifications: GapVerification[];
 };
 
 export type ChatTurn =

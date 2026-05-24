@@ -4,13 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import TopicBox from "@/components/TopicBox";
 import ConceptOverview from "@/components/ConceptOverview";
 import PapersList from "@/components/PapersList";
+import GapAnalysisSection from "@/components/GapAnalysis";
 import RelationsGraph from "@/components/RelationsGraph";
 import ChatBox from "@/components/ChatBox";
 import SetupBanner from "@/components/SetupBanner";
 import Sidebar from "@/components/Sidebar";
-import { discoverModels, search, type ModelChoice } from "@/lib/vane";
-import { fetchGraph, fetchPapers } from "@/lib/researchApi";
-import type { ChatTurn, GraphResponse, Paper, VaneAnswer } from "@/lib/types";
+import { discoverModels, search, analyzeGaps, type ModelChoice } from "@/lib/vane";
+import { fetchGraph, fetchPapers, fetchExtraction } from "@/lib/researchApi";
+import type { ChatTurn, GapAnalysis, GapVerification, GraphResponse, Paper, PaperSections, VaneAnswer } from "@/lib/types";
 import {
   createSession,
   loadSession,
@@ -33,6 +34,9 @@ export default function Page() {
   const [papersLoading, setPapersLoading] = useState(false);
   const [graphErr, setGraphErr] = useState<string | null>(null);
   const [graphLoading, setGraphLoading] = useState(false);
+  const [gapExtracting, setGapExtracting] = useState(false);
+  const [gapAnalyzing, setGapAnalyzing] = useState(false);
+  const [gapErr, setGapErr] = useState<string | null>(null);
 
   // runSearch resolves async pieces and then patches them onto whatever
   // session is current. We capture the id at start so a late response from a
@@ -66,6 +70,9 @@ export default function Page() {
     setPapersLoading(false);
     setGraphErr(null);
     setGraphLoading(false);
+    setGapExtracting(false);
+    setGapAnalyzing(false);
+    setGapErr(null);
     setRunning(false);
     setSession(s);
   };
@@ -78,6 +85,9 @@ export default function Page() {
     setPapersLoading(false);
     setGraphErr(null);
     setGraphLoading(false);
+    setGapExtracting(false);
+    setGapAnalyzing(false);
+    setGapErr(null);
     setRunning(false);
     setSession(null);
   };
@@ -95,6 +105,9 @@ export default function Page() {
     setPapersLoading(true);
     setGraphErr(null);
     setGraphLoading(false);
+    setGapExtracting(false);
+    setGapAnalyzing(false);
+    setGapErr(null);
 
     const stillActive = () => activeRunId.current === fresh.id;
 
@@ -123,23 +136,64 @@ export default function Page() {
         patchSession({ papers: resp.papers });
         setPapersLoading(false);
 
+        // Launch graph building and gap extraction in parallel.
         const seedIds = resp.papers
           .filter((p) => !p.id.startsWith("OA:"))
           .slice(0, 6)
           .map((p) => p.id);
-        if (seedIds.length === 0) {
-          setGraphErr("Need Semantic Scholar IDs to build a graph; none in this result set.");
-          return;
-        }
-        setGraphLoading(true);
-        try {
-          const g = await fetchGraph(seedIds);
-          if (stillActive()) patchSession({ graph: g });
-        } catch (e: any) {
-          if (stillActive()) setGraphErr(e.message || String(e));
-        } finally {
-          if (stillActive()) setGraphLoading(false);
-        }
+
+        const graphP = (async () => {
+          if (seedIds.length === 0) {
+            setGraphErr("Need Semantic Scholar IDs to build a graph; none in this result set.");
+            return;
+          }
+          setGraphLoading(true);
+          try {
+            const g = await fetchGraph(seedIds);
+            if (stillActive()) patchSession({ graph: g });
+          } catch (e: any) {
+            if (stillActive()) setGraphErr(e.message || String(e));
+          } finally {
+            if (stillActive()) setGraphLoading(false);
+          }
+        })();
+
+        const gapP = (async () => {
+          if (!models || !stillActive()) return;
+          try {
+            setGapExtracting(true);
+            let sections: Record<string, import("@/lib/types").PaperSections> = {};
+            try {
+              const extracted = await fetchExtraction(resp.papers);
+              sections = extracted.sections;
+              if (stillActive()) patchSession({ extractedSections: sections });
+            } catch {
+              // Extraction is best-effort; continue with abstract-only.
+            }
+            if (!stillActive()) return;
+            setGapExtracting(false);
+            setGapAnalyzing(true);
+
+            const answer = await analyzeGaps({
+              topic,
+              papers: resp.papers,
+              sections,
+              models,
+            });
+            if (stillActive()) {
+              patchSession({ gaps: { message: answer.message, sources: answer.sources, verifications: [] } });
+            }
+          } catch (e: any) {
+            if (stillActive()) setGapErr(e.message || String(e));
+          } finally {
+            if (stillActive()) {
+              setGapExtracting(false);
+              setGapAnalyzing(false);
+            }
+          }
+        })();
+
+        await Promise.allSettled([graphP, gapP]);
       })
       .catch((e) => {
         if (stillActive()) {
@@ -156,9 +210,18 @@ export default function Page() {
     patchSession({ chat: next });
   };
 
+  const handleGapVerifications = (verifications: GapVerification[]) => {
+    patchSession({
+      gaps: session?.gaps
+        ? { ...session.gaps, verifications }
+        : undefined,
+    });
+  };
+
   const topic: string | null = session?.topic ?? null;
   const overview: VaneAnswer | null = session?.overview ?? null;
   const papers: Paper[] = session?.papers ?? [];
+  const gaps: GapAnalysis | null = session?.gaps ?? null;
   const graph: GraphResponse | null = session?.graph ?? null;
   const chat: ChatTurn[] = session?.chat ?? [];
 
@@ -184,6 +247,13 @@ export default function Page() {
             <>
               <ConceptOverview loading={overviewLoading} error={overviewErr} answer={overview} />
               <PapersList loading={papersLoading} error={papersErr} papers={papers} />
+              <GapAnalysisSection
+                extracting={gapExtracting}
+                analyzing={gapAnalyzing}
+                error={gapErr}
+                data={gaps}
+                onVerificationsChange={handleGapVerifications}
+              />
               <RelationsGraph loading={graphLoading} error={graphErr} data={graph} />
               {models && (
                 <ChatBox

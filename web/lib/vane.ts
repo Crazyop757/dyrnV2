@@ -104,4 +104,62 @@ export async function search({
   return r.json();
 }
 
+export async function analyzeGaps({
+  topic,
+  papers,
+  sections,
+  models,
+}: {
+  topic: string;
+  papers: { title: string; year: number | null; authors: string[]; abstract: string | null; citation_count: number; venue: string | null; tldr: string | null; id: string }[];
+  sections: Record<string, { limitations: string | null; future_work: string | null; conclusions: string | null }>;
+  models: ModelChoice;
+}): Promise<VaneAnswer> {
+  const paperBlocks = papers
+    .map((p, i) => {
+      const parts = [
+        `### Paper ${i + 1}: ${p.title} (${p.year ?? "n/a"})`,
+        `Authors: ${p.authors.join(", ") || "unknown"} | Citations: ${p.citation_count} | Venue: ${p.venue ?? "n/a"}`,
+      ];
+      if (p.tldr) parts.push(`TLDR: ${p.tldr}`);
+      if (p.abstract) parts.push(`Abstract: ${p.abstract}`);
+      const sec = sections[p.id];
+      if (sec?.limitations) parts.push(`Limitations: ${sec.limitations}`);
+      if (sec?.future_work) parts.push(`Future work: ${sec.future_work}`);
+      if (sec?.conclusions) parts.push(`Conclusions: ${sec.conclusions}`);
+      return parts.join("\n");
+    })
+    .join("\n\n");
+
+  const systemInstructions = `You are analyzing research papers to identify gaps in the literature on "${topic}".
+
+## Papers analyzed
+${paperBlocks}
+
+## Analysis instructions
+Produce a research gap analysis with exactly three sections as shown below. For EVERY gap or area you identify, include a search query line formatted exactly as: *Search: "your specific search query here"*
+
+### Gaps found
+Evidence contradictions, population voids, temporal gaps, methodological blind spots.
+For each gap: state which papers reveal it, what type it is (methodological, theoretical, empirical, application), and how urgent it is (high/medium/low).
+
+### Areas to explore
+Knowledge voids at the intersection of the papers' themes that nobody has studied.
+Directions explicitly suggested by the papers' future-work sections or limitations.
+
+### Areas to improve
+Repeated limitations across multiple papers. Methodological weaknesses.
+Count how many papers share each limitation.
+
+IMPORTANT: For every gap or area, always include a line formatted exactly as:
+*Search: "specific search query to verify this gap"*`;
+
+  return search({
+    query: `Research gap analysis: ${topic}`,
+    models,
+    sources: ["academic"],
+    systemInstructions,
+  });
+}
+
 export const VANE_URL = PUBLIC_VANE_URL;

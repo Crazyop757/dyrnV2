@@ -45,6 +45,7 @@ def _summary_to_dict(rec: dict[str, Any], pmid: str) -> dict[str, Any]:
         "arxiv_id": None,
         "pdf_url": None,
         "url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
+        "tldr": None,
         "source": "pubmed",
     }
 

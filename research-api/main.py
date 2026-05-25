@@ -159,13 +159,24 @@ async def papers(
     # to dedupe and still hit the cap.
     per_source = limit + 5
 
-    s2_papers, oa_papers, cr_papers, pm_papers = await asyncio.gather(
+    results = await asyncio.gather(
         app.state.s2.search_papers(topic, limit=per_source),
         app.state.oa.search_papers(topic, limit=per_source),
         app.state.cr.search_papers(topic, limit=per_source),
         app.state.pm.search_papers(topic, limit=per_source),
-        return_exceptions=False,
+        return_exceptions=True,
     )
+
+    def _safe(r: Any, name: str) -> list[dict[str, Any]]:
+        if isinstance(r, BaseException):
+            log.warning("Source %s failed: %s", name, r)
+            return []
+        return r
+
+    s2_papers = _safe(results[0], "semantic_scholar")
+    oa_papers = _safe(results[1], "openalex")
+    cr_papers = _safe(results[2], "crossref")
+    pm_papers = _safe(results[3], "pubmed")
 
     merged = _merge_papers(s2_papers, oa_papers, cr_papers, pm_papers, limit=limit)
     if not merged:
@@ -227,7 +238,7 @@ async def verify_gap(
     query: str = Query(..., min_length=2),
 ) -> dict[str, Any]:
     """Search Semantic Scholar for a gap query and return a confidence verdict."""
-    results = await app.state.s2.search_papers(query, limit=5)
+    results = await app.state.s2.search_papers(query, limit=20)
     total = len(results)
 
     if total <= 2:

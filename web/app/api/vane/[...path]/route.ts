@@ -68,7 +68,13 @@ async function proxy(req: Request, pathParts: string[]) {
   }
 }
 
-type Ctx = { params: { path: string[] } };
+type Ctx = { params: Promise<{ path: string[] }> };
 
-export const GET = (req: Request, ctx: Ctx) => proxy(req, ctx.params.path);
-export const POST = (req: Request, ctx: Ctx) => proxy(req, ctx.params.path);
+export const GET = async (req: Request, ctx: Ctx) => {
+  const { path } = await ctx.params;
+  return proxy(req, path);
+};
+export const POST = async (req: Request, ctx: Ctx) => {
+  const { path } = await ctx.params;
+  return proxy(req, path);
+};

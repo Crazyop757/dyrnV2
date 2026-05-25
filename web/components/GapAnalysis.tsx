@@ -12,12 +12,16 @@ type Props = {
   onVerificationsChange: (verifications: GapVerification[]) => void;
 };
 
-const SEARCH_RE = /\*Search:\s*"([^"]+)"\*/g;
+// Create fresh regex each time to avoid /g lastIndex statefulness bugs.
+function searchRe(): RegExp {
+  return /\*Search:\s*"([^"]+)"\*/g;
+}
 
 function parseSearchQueries(text: string): string[] {
   const queries: string[] = [];
   let match;
-  while ((match = SEARCH_RE.exec(text)) !== null) {
+  const re = searchRe();
+  while ((match = re.exec(text)) !== null) {
     queries.push(match[1]);
   }
   return queries;
@@ -69,7 +73,7 @@ function renderMessageWithBadges(
   text: string,
   verificationMap: Map<string, GapVerification>,
 ) {
-  const parts = text.split(SEARCH_RE);
+  const parts = text.split(searchRe());
   const elements: (string | JSX.Element)[] = [];
 
   for (let i = 0; i < parts.length; i++) {
@@ -134,14 +138,15 @@ export default function GapAnalysis({
     })();
 
     return () => { cancelled = true; };
-  }, [data?.message]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.message, onVerificationsChange]);
 
   return (
     <section>
       <h2 className="text-xl font-semibold mb-3 text-zinc-100">Research gap analysis</h2>
 
       {extracting && (
-        <p className="text-zinc-400">Extracting paper sections via GROBID...</p>
+        <p className="text-zinc-400">Extracting paper sections...</p>
       )}
       {!extracting && analyzing && (
         <p className="text-zinc-400">Analyzing research gaps...</p>

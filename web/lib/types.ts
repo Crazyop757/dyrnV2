@@ -12,7 +12,7 @@ export type Paper = {
   pdf_url: string | null;
   url: string | null;
   tldr: string | null;
-  source: "semantic_scholar" | "openalex";
+  source: "semantic_scholar" | "openalex" | "crossref" | "pubmed";
 };
 
 export type PapersResponse = { topic: string; papers: Paper[] };

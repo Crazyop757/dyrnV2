@@ -138,7 +138,7 @@ export default function Page() {
 
         // Launch graph building and gap extraction in parallel.
         const seedIds = resp.papers
-          .filter((p) => !p.id.startsWith("OA:"))
+          .filter((p) => !p.id.startsWith("OA:") && !p.id.startsWith("DOI:") && !p.id.startsWith("PMID:"))
           .slice(0, 6)
           .map((p) => p.id);
 

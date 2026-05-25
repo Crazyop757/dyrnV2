@@ -69,7 +69,7 @@ class SemanticScholar:
     async def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response | None:
         # Serialize requests + sleep — S2 free tier is strict about concurrent calls.
         async with self._lock:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             wait = self._rate_sleep - (loop.time() - self._last_call)
             if wait > 0:
                 await asyncio.sleep(wait)

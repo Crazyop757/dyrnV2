@@ -109,7 +109,7 @@ export function createSession(topic: string): Session {
 // Reactive view of the sidebar list. Re-reads on local saves (custom event)
 // and cross-tab edits (storage event).
 export function useSessionList(): SessionSummary[] {
-  const [list, setList] = useState<SessionSummary[]>([]);
+  const [list, setList] = useState<SessionSummary[]>(() => listSessions());
 
   const refresh = useCallback(() => setList(listSessions()), []);
 

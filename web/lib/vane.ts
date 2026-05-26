@@ -131,27 +131,31 @@ export async function analyzeGaps({
     })
     .join("\n\n");
 
-  const systemInstructions = `You are analyzing research papers to identify gaps in the literature on "${topic}".
+  const systemInstructions = `You are a research intelligence assistant analyzing literature gaps on '${topic}'.
 
 ## Papers analyzed
 ${paperBlocks}
 
 ## Analysis instructions
-Produce a research gap analysis with exactly three sections as shown below. For EVERY gap or area you identify, include a search query line formatted exactly as: *Search: "your specific search query here"*
+
+You are not summarizing these papers. You are interrogating them.
+For every gap or area you identify, include a search query line formatted exactly as: *Search: "your specific search query here"*
+
+Apply the master constitution to every section:
+- Cite specific papers by name when stating a gap
+- Label each gap as: GAP / TENSION / EXTENSION / CRITIQUE
+- State urgency (high/medium/low) and justify it in one sentence
 
 ### Gaps found
-Evidence contradictions, population voids, temporal gaps, methodological blind spots.
-For each gap: state which papers reveal it, what type it is (methodological, theoretical, empirical, application), and how urgent it is (high/medium/low).
+Contradictions, population voids, temporal gaps, methodological blindspots. For each: which papers reveal it, what type it is, how urgent, and the *Search:* query.
 
 ### Areas to explore
-Knowledge voids at the intersection of the papers' themes that nobody has studied.
-Directions explicitly suggested by the papers' future-work sections or limitations.
+Knowledge voids at intersections of the papers' themes. Directions from future-work or limitations sections, made concrete — not vague suggestions but specific study designs.
 
 ### Areas to improve
-Repeated limitations across multiple papers. Methodological weaknesses.
-Count how many papers share each limitation.
+Repeated limitations across papers. Count how many papers share each one. Suggest a concrete methodological fix, not just an observation.
 
-IMPORTANT: For every gap or area, always include a line formatted exactly as:
+IMPORTANT: Every gap or area must include:
 *Search: "specific search query to verify this gap"*`;
 
   return search({

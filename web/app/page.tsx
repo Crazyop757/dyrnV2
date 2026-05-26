@@ -116,9 +116,21 @@ export default function Page() {
       models,
       sources: ["academic", "web"],
       systemInstructions:
-        "You are summarizing a research topic for a researcher. Give a concise " +
-        "overview (3-5 short paragraphs) of what the topic is, the main approaches, " +
-        "and the key open questions. Cite sources inline.",
+        "You are a research intelligence assistant. A researcher has " +
+        "submitted a new topic. Give a structured concept overview using " +
+        "this exact shape:\n\n" +
+        "[ORIENT] 2-3 sentences framing what this topic is and why it " +
+        "matters in research — not a textbook definition, a research " +
+        "framing.\n\n" +
+        "[MAIN APPROACHES] For each major approach in the literature, " +
+        "state what it does and where it falls short. Cite specific " +
+        "methodological choices, not just category names.\n\n" +
+        "[OPEN TENSIONS] What is genuinely unresolved or contested in " +
+        "this space? Name the specific contradiction or gap, not a " +
+        "generic challenge.\n\n" +
+        "Hard limits: No tutorial language. No \"It is important to note.\" " +
+        "No more than 4 paragraphs total. Write as a senior collaborator " +
+        "briefing a peer, not a professor lecturing a student.",
     })
       .then((a) => {
         if (stillActive()) patchSession({ overview: a });

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { verifyGap } from "@/lib/researchApi";
 import type { GapAnalysis as GapAnalysisType, GapVerification } from "@/lib/types";
+import Markdown from "./Markdown";
 
 type Props = {
   extracting: boolean;
@@ -78,7 +79,7 @@ function renderMessageWithBadges(
 
   for (let i = 0; i < parts.length; i++) {
     if (i % 2 === 0) {
-      elements.push(parts[i]);
+      if (parts[i]) elements.push(<Markdown key={`md-${i}`}>{parts[i]}</Markdown>);
     } else {
       const query = parts[i];
       const v = verificationMap.get(query);
@@ -155,7 +156,7 @@ export default function GapAnalysis({
 
       {data && (
         <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
-          <div className="whitespace-pre-wrap leading-relaxed text-zinc-200">
+          <div className="leading-relaxed text-zinc-200">
             {renderMessageWithBadges(data.message, verificationMap)}
           </div>
           {data.sources.length > 0 && (

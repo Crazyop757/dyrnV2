@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { search, type ChatPair, type ModelChoice } from "@/lib/vane";
 import type { ChatTurn, Paper, VaneAnswer } from "@/lib/types";
+import Markdown from "./Markdown";
 
 type Props = {
   models: ModelChoice;
@@ -247,7 +248,11 @@ export default function ChatBox({ models, overview, papers, topic, turns, onTurn
             <div className="text-[11px] uppercase tracking-wide text-zinc-500 mb-1">
               {t.role === "human" ? "You" : "Assistant"}
             </div>
-            <div className="whitespace-pre-wrap leading-relaxed text-zinc-200">{t.text}</div>
+            {t.role === "human" ? (
+              <div className="whitespace-pre-wrap leading-relaxed text-zinc-200">{t.text}</div>
+            ) : (
+              <Markdown>{t.text}</Markdown>
+            )}
             {t.role === "assistant" && t.sources && t.sources.length > 0 && (
               <details className="text-xs mt-2">
                 <summary className="cursor-pointer text-zinc-400 hover:text-zinc-200">

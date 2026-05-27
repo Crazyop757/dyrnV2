@@ -1,4 +1,5 @@
 import type { VaneAnswer } from "@/lib/types";
+import Markdown from "./Markdown";
 
 type Props = {
   loading: boolean;
@@ -14,7 +15,7 @@ export default function ConceptOverview({ loading, error, answer }: Props) {
       {error && <p className="text-red-400 text-sm">{error}</p>}
       {answer && (
         <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
-          <div className="whitespace-pre-wrap leading-relaxed text-zinc-200">{answer.message}</div>
+          <Markdown>{answer.message}</Markdown>
           {answer.sources.length > 0 && (
             <details className="text-sm">
               <summary className="cursor-pointer text-zinc-400 hover:text-zinc-200">

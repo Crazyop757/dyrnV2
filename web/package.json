@@ -12,7 +12,8 @@
     "next": "14.2.13",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "react-force-graph-2d": "1.25.5",
+    "@xyflow/react": "^12.0.0",
+    "elkjs": "^0.9.1",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
   },

@@ -151,7 +151,7 @@ export default function Page() {
         // Launch graph building and gap extraction in parallel.
         const seedIds = resp.papers
           .filter((p) => !p.id.startsWith("OA:") && !p.id.startsWith("DOI:") && !p.id.startsWith("PMID:"))
-          .slice(0, 6)
+          .slice(0, 20)
           .map((p) => p.id);
 
         const graphP = (async () => {
@@ -242,7 +242,7 @@ export default function Page() {
       <Sidebar activeId={session?.id ?? null} onSelect={handleSelect} onNew={handleNew} />
 
       <main className="flex-1 overflow-x-hidden">
-        <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
+        <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
           <header>
             <h1 className="text-3xl font-bold tracking-tight">Research</h1>
             <p className="text-zinc-400 mt-1 text-sm">

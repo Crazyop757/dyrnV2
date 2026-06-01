@@ -23,11 +23,18 @@ export type GraphNode = {
   year: number | null;
   authors: string[];
   citation_count: number;
-  is_seed: boolean;
-  score: number | null;
+  is_seed?: boolean;
+  score?: number | null;
+  cluster?: string;
 };
 
-export type GraphEdge = { source: string; target: string; weight: number };
+export type GraphEdge = { 
+  source: string; 
+  target: string; 
+  weight?: number;
+  intent?: string;
+  context?: string;
+};
 
 export type GraphResponse = { nodes: GraphNode[]; edges: GraphEdge[] };
 

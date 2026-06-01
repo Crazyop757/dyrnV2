@@ -1,51 +1,58 @@
 """
-Relations graph builder — bibliographic coupling + co-citation.
+Relations graph builder — Semantic Topography.
 
-Port of SpiderPDF's pipeline/graph.py, optimized for the MVP by using
-Semantic Scholar's batch endpoint to fetch references+citations in bulk
-(one HTTP call per ~400 papers, instead of one call per paper).
-
-Algorithm:
-  For each seed paper, fetch its references (papers it cites) and citations
-  (papers that cite it). The candidate pool = the union of all those IDs.
-  For every pair of papers in (seeds + top candidates):
-
-      similarity(A, B) = cosine(refs_A, refs_B)   # bibliographic coupling
-                      + cosine(citers_A, citers_B) # co-citation
-
-  Keep nodes whose similarity to ANY seed is > 0; keep edges with sim >= min_edge.
-
-Returns a dict {nodes, edges} ready for react-force-graph-2d.
+Replaces co-citation clustering with SPECTER2 vector embeddings and K-Means.
+Uses direct citations + cosine similarity fallback for edges.
 """
 
 from __future__ import annotations
 
 import logging
-import math
+import os
 from typing import Any
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.metrics.pairwise import cosine_similarity
+from openai import AsyncOpenAI
 
 from sources.semantic_scholar import SemanticScholar
 
 log = logging.getLogger(__name__)
 
 
-# Cap how many candidates we expand. Larger pool = better graph, but each
-# additional candidate is ~one extra paperId in a batch call. 80 is plenty
-# for a readable graph and keeps the second batch call cheap.
-_MAX_CANDIDATES = 50
+async def classify_intent(context: str) -> str:
+    """Classifies citation context into specific semantic buckets using OpenAI or Groq."""
+    openai_key = os.getenv("OPENAI_API_KEY")
+    groq_key = os.getenv("GROQ_API_KEY")
 
+    if openai_key and len(openai_key) > 10:
+        client = AsyncOpenAI(api_key=openai_key)
+        model = "gpt-4o-mini"
+    elif groq_key and len(groq_key) > 10:
+        client = AsyncOpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
+        model = "llama-3.1-70b-versatile"
+    else:
+        return "General Reference"
 
-def _cosine(a: set[str], b: set[str]) -> float:
-    if not a or not b:
-        return 0.0
-    inter = len(a & b)
-    if inter == 0:
-        return 0.0
-    return inter / math.sqrt(len(a) * len(b))
+    prompt = (
+        "Classify the following academic citation context into exactly one of "
+        "these categories: 'Refutes', 'Builds Upon', 'Applies Method', or "
+        "'General Reference'. Context: \"" + context + "\". Reply with ONLY the category name."
+    )
 
-
-def _similarity(refs_a: set[str], refs_b: set[str], citers_a: set[str], citers_b: set[str]) -> float:
-    return _cosine(refs_a, refs_b) + _cosine(citers_a, citers_b)
+    try:
+        resp = await client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=10,
+            temperature=0,
+        )
+        cat = resp.choices[0].message.content.strip().strip("'\"")
+        valid = {"Refutes", "Builds Upon", "Applies Method", "General Reference"}
+        return cat if cat in valid else "General Reference"
+    except Exception as e:
+        log.warning("LLM classification failed: %s", e)
+        return "General Reference"
 
 
 async def build_graph(
@@ -57,91 +64,129 @@ async def build_graph(
     if not seed_ids:
         return {"nodes": [], "edges": []}
 
-    # 1. Fetch refs+citers for all seeds in one batch.
-    seed_links = await s2.get_links_batch(seed_ids)
-    seed_refs = {sid: seed_links.get(sid, (set(), set()))[0] for sid in seed_ids}
-    seed_citers = {sid: seed_links.get(sid, (set(), set()))[1] for sid in seed_ids}
+    # 1. Fetch metadata & embeddings for seeds
+    meta = await s2.get_papers_batch(seed_ids)
+    valid_ids = [sid for sid in seed_ids if sid in meta]
+    if not valid_ids:
+        return {"nodes": [], "edges": []}
 
-    # 2. Candidate pool = everything we discovered, minus the seeds themselves.
-    candidates: set[str] = set()
-    for sid in seed_ids:
-        candidates |= seed_refs[sid]
-        candidates |= seed_citers[sid]
-    candidates -= set(seed_ids)
+    # 2. Extract embeddings and run K-Means clustering
+    embeddings: list[list[float]] = []
+    embed_ids: list[str] = []
+    for sid in valid_ids:
+        emb = meta[sid].get("specter_v2")
+        if emb and len(emb) > 0:
+            embeddings.append(emb)
+            embed_ids.append(sid)
 
-    if not candidates:
-        seeds_meta = await s2.get_papers_batch(seed_ids)
-        return {
-            "nodes": [_node(seeds_meta.get(sid, {"id": sid, "title": sid}), is_seed=True) for sid in seed_ids],
-            "edges": [],
-        }
+    clusters_map: dict[str, str] = {}
+    if len(embeddings) >= 3:
+        n_clusters = min(4, len(embeddings))
+        X = np.array(embeddings)
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10).fit(X)
+        # Name clusters by their dominant topic (use first paper's title keyword)
+        cluster_labels: dict[int, str] = {}
+        for i, sid in enumerate(embed_ids):
+            label = int(kmeans.labels_[i])
+            if label not in cluster_labels:
+                title = meta[sid].get("title", "")
+                # Use first 2-3 words as cluster name
+                words = title.split()[:3]
+                cluster_labels[label] = " ".join(words) if words else f"Topic {label + 1}"
+            clusters_map[sid] = cluster_labels[label]
+    else:
+        for sid in valid_ids:
+            clusters_map[sid] = "Research Cluster"
 
-    # Trim: keep the candidates that appear in the most seed neighborhoods —
-    # those are the ones most likely to score well anyway.
-    candidate_freq: dict[str, int] = {}
-    for sid in seed_ids:
-        for cid in seed_refs[sid] | seed_citers[sid]:
-            candidate_freq[cid] = candidate_freq.get(cid, 0) + 1
-    ranked_cands = sorted(candidates, key=lambda c: -candidate_freq.get(c, 0))
-    cand_list = ranked_cands[:_MAX_CANDIDATES]
+    # For papers without embeddings, assign to nearest cluster or default
+    for sid in valid_ids:
+        if sid not in clusters_map:
+            clusters_map[sid] = "Research Cluster"
 
-    log.info(
-        "graph: %d seeds, %d candidates (trimmed from %d), top_n=%d",
-        len(seed_ids), len(cand_list), len(candidates), top_n,
-    )
+    # 3. Fetch explicit links (refs & citers) with contexts and intents
+    links = await s2.get_links_batch(valid_ids)
 
-    # 3. Fetch refs+citers for all trimmed candidates in one batch.
-    cand_links = await s2.get_links_batch(cand_list)
-    cand_refs = {cid: cand_links.get(cid, (set(), set()))[0] for cid in cand_list}
-    cand_citers = {cid: cand_links.get(cid, (set(), set()))[1] for cid in cand_list}
-
-    # 4. Score each candidate vs each seed; keep max score across seeds.
-    scores: dict[str, float] = {}
-    for cid in cand_list:
-        best = 0.0
-        for sid in seed_ids:
-            s = _similarity(cand_refs[cid], seed_refs[sid], cand_citers[cid], seed_citers[sid])
-            if s > best:
-                best = s
-        scores[cid] = best
-
-    ranked = sorted(
-        ((cid, s) for cid, s in scores.items() if s > 0),
-        key=lambda x: -x[1],
-    )[:top_n]
-    top_ids = [cid for cid, _ in ranked]
-
-    # 5. Pull display metadata for seeds + top candidates.
-    meta = await s2.get_papers_batch(list(set(seed_ids + top_ids)))
-
+    # 4. Build Node List
     nodes: list[dict[str, Any]] = []
-    for sid in seed_ids:
-        nodes.append(_node(meta.get(sid, {"id": sid, "title": sid}), is_seed=True, score=1.0))
-    for cid, s in ranked:
-        if cid in meta:
-            nodes.append(_node(meta[cid], is_seed=False, score=s))
+    for sid in valid_ids:
+        p = meta[sid]
+        nodes.append({
+            "id": sid,
+            "label": p.get("title") or "(untitled)",
+            "year": p.get("year"),
+            "authors": (p.get("authors") or [])[:3],
+            "citation_count": p.get("citation_count") or 0,
+            "cluster": clusters_map.get(sid, "Research Cluster"),
+        })
 
-    # 6. Build edges between every pair in {seeds ∪ top}.
-    all_ids = seed_ids + top_ids
-    refs_map = {**seed_refs, **{cid: cand_refs[cid] for cid in top_ids}}
-    citers_map = {**seed_citers, **{cid: cand_citers[cid] for cid in top_ids}}
+    # 5. Build Edge List — direct citations between seed papers
+    valid_set = set(valid_ids)
     edges: list[dict[str, Any]] = []
-    for i, a in enumerate(all_ids):
-        for b in all_ids[i + 1 :]:
-            sim = _similarity(refs_map[a], refs_map[b], citers_map[a], citers_map[b])
-            if sim >= min_edge:
-                edges.append({"source": a, "target": b, "weight": round(sim, 4)})
+    seen_edges: set[tuple[str, str]] = set()
+
+    for sid in valid_ids:
+        refs, _ = links.get(sid, ({}, {}))
+        for ref_id, data in refs.items():
+            if ref_id in valid_set:
+                edge_key = (min(ref_id, sid), max(ref_id, sid))
+                if edge_key in seen_edges:
+                    continue
+                seen_edges.add(edge_key)
+
+                intents = data.get("intents") or []
+                contexts = data.get("contexts") or []
+
+                mapped_intent = "General Reference"
+                if "methodology" in intents:
+                    mapped_intent = "Applies Method"
+                elif "result" in intents:
+                    mapped_intent = "Builds Upon"
+                elif "background" in intents:
+                    mapped_intent = "General Reference"
+                elif len(contexts) > 0:
+                    mapped_intent = await classify_intent(contexts[0])
+
+                edges.append({
+                    "source": ref_id,
+                    "target": sid,
+                    "weight": 0.8,
+                    "intent": mapped_intent,
+                    "context": contexts[0] if contexts else "",
+                })
+
+    # 6. FALLBACK — if too few direct citation edges, add cosine similarity edges
+    #    from SPECTER2 embeddings so the graph always has connections.
+    if len(edges) < len(valid_ids) - 1 and len(embeddings) >= 2:
+        log.info("Only %d citation edges for %d nodes — adding similarity edges", len(edges), len(valid_ids))
+        X = np.array(embeddings)
+        sim_matrix = cosine_similarity(X)
+
+        # Collect (score, i, j) pairs and sort by similarity descending
+        pairs = []
+        for i in range(len(embed_ids)):
+            for j in range(i + 1, len(embed_ids)):
+                pairs.append((sim_matrix[i][j], i, j))
+        pairs.sort(reverse=True)
+
+        # Add top-N similarity edges until we have enough connectivity
+        target_edges = max(len(valid_ids), len(valid_ids) * 2)
+        for score, i, j in pairs:
+            if len(edges) >= target_edges:
+                break
+            if score < min_edge:
+                break
+            sid_a = embed_ids[i]
+            sid_b = embed_ids[j]
+            edge_key = (min(sid_a, sid_b), max(sid_a, sid_b))
+            if edge_key in seen_edges:
+                continue
+            seen_edges.add(edge_key)
+            edges.append({
+                "source": sid_a,
+                "target": sid_b,
+                "weight": round(float(score), 3),
+                "intent": "Similar Research",
+                "context": "",
+            })
 
     return {"nodes": nodes, "edges": edges}
-
-
-def _node(p: dict[str, Any], is_seed: bool, score: float | None = None) -> dict[str, Any]:
-    return {
-        "id": p.get("id") or "",
-        "label": p.get("title") or "(untitled)",
-        "year": p.get("year"),
-        "authors": (p.get("authors") or [])[:3],
-        "citation_count": p.get("citation_count") or 0,
-        "is_seed": is_seed,
-        "score": round(score, 4) if score is not None else None,
-    }

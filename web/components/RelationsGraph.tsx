@@ -1,11 +1,30 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import {
+  ReactFlow,
+  ReactFlowProvider,
+  Background,
+  Controls,
+  MiniMap,
+  useReactFlow,
+  type Node,
+  type Edge,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+// @ts-ignore — elkjs bundled has no type declarations
+import ELK from "elkjs/lib/elk.bundled.js";
+
+import PaperNode from "./graph/PaperNode";
+import ClusterGroupNode from "./graph/ClusterGroupNode";
+import SemanticEdge from "./graph/SemanticEdge";
 import type { GraphResponse } from "@/lib/types";
 
-// react-force-graph-2d uses canvas + window — must be client-only.
-const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false });
+const elk = new ELK();
+
+// Must be OUTSIDE the component to prevent React Flow infinite re-renders.
+const nodeTypes = { paper: PaperNode, cluster: ClusterGroupNode };
+const edgeTypes = { semantic: SemanticEdge };
 
 type Props = {
   loading: boolean;
@@ -13,99 +32,212 @@ type Props = {
   data: GraphResponse | null;
 };
 
-// Palette tuned for a near-black canvas.
-const SEED_FILL = "#f8fafc";          // slate-50 — anchor papers, brightest on dark
-const NODE_FILL = "#94a3b8";          // slate-400 — neutral non-seed
-const HOVER_FILL = "#f87171";         // red-400 — focused element
-const HOVER_RING = "#fecaca";         // red-200 — bright outline around focused
-const NEIGHBOR_ACCENT = "#fbbf24";    // amber-400 — connected to focused
-const SEED_DIM = "rgba(248, 250, 252, 0.18)";
-const NODE_DIM = "rgba(148, 163, 184, 0.15)";
-const EDGE_BASE = "rgba(161, 161, 170, 0.5)";    // zinc-400 @ 50% — clearly visible on dark
-const EDGE_DIM = "rgba(161, 161, 170, 0.08)";
-const EDGE_NEIGHBOR = "rgba(251, 191, 36, 0.95)";
-const LABEL_FILL = "#e4e4e7";         // zinc-200
-const LABEL_HOVER = "#fecaca";        // red-200
-const LABEL_HALO = "rgba(9, 9, 11, 0.85)";  // zinc-950 @ 85% — dark halo on dark bg
+// SVG arrow marker definitions for each intent color
+function ArrowDefs() {
+  const arrows = [
+    { id: "arrow-BuildsUpon", color: "#10b981" },
+    { id: "arrow-AppliesMethod", color: "#3b82f6" },
+    { id: "arrow-Refutes", color: "#ef4444" },
+    { id: "arrow-SimilarResearch", color: "#a78bfa" },
+    { id: "arrow-GeneralReference", color: "#71717a" },
+  ];
+  return (
+    <svg style={{ position: "absolute", top: 0, left: 0, width: 0, height: 0 }}>
+      <defs>
+        {arrows.map((a) => (
+          <marker
+            key={a.id}
+            id={a.id}
+            viewBox="0 0 20 20"
+            refX="18"
+            refY="10"
+            markerWidth="8"
+            markerHeight="8"
+            orient="auto-start-reverse"
+          >
+            <path d="M 0 0 L 20 10 L 0 20 z" fill={a.color} />
+          </marker>
+        ))}
+      </defs>
+    </svg>
+  );
+}
 
-const CANVAS_BG = "#09090b"; // zinc-950 — matches page bg so the graph blends
+function GraphInner({ data }: { data: GraphResponse }) {
+  const [nodes, setNodes] = useState<Node[]>([]);
+  const [edges, setEdges] = useState<Edge[]>([]);
+  const { fitView } = useReactFlow();
 
-// Sizing
-const SEED_R = 3.2;
-const NODE_R_MIN = 1.4;
-const NODE_R_MAX = 2.6;
-const HOVER_SCALE = 1.8;     // hovered node grows so the focus is unmissable
-const SEED_HIT_R = 8;
-const NODE_HIT_R = 5;
+  useEffect(() => {
+    if (!data || data.nodes.length === 0) {
+      setNodes([]);
+      setEdges([]);
+      return;
+    }
 
-function nodeRadius(n: any): number {
-  if (n.is_seed) return SEED_R;
-  const s = typeof n.score === "number" ? Math.max(0, Math.min(1, n.score)) : 0.5;
-  return NODE_R_MIN + (NODE_R_MAX - NODE_R_MIN) * s;
+    const runLayout = async () => {
+      // Node size for the compact circular nodes
+      const NODE_W = 80;
+      const NODE_H = 80;
+
+      // Find unique clusters
+      const clusterNames = Array.from(new Set(data.nodes.map(n => n.cluster || "Research Cluster")));
+      const PAD = 40;
+
+      // Build hierarchical ELK graph
+      const elkGraph = {
+        id: "root",
+        layoutOptions: {
+          "elk.algorithm": "layered",
+          "elk.direction": "RIGHT",
+          "elk.spacing.nodeNode": "80",
+          "elk.layered.spacing.nodeNodeBetweenLayers": "120",
+          "elk.padding": `[top=${PAD},left=${PAD},bottom=${PAD},right=${PAD}]`,
+        },
+        children: clusterNames.map(cl => ({
+          id: `cluster-${cl}`,
+          layoutOptions: {
+            "elk.padding": `[top=100,left=${PAD},bottom=${PAD},right=${PAD}]`,
+          },
+          children: data.nodes
+            .filter(n => (n.cluster || "Research Cluster") === cl)
+            .map(n => ({
+              id: n.id,
+              width: NODE_W,
+              height: NODE_H,
+            }))
+        })),
+        edges: data.edges.map((e, i) => ({
+          id: `e${i}`,
+          sources: [e.source],
+          targets: [e.target],
+        })),
+      };
+
+      try {
+        const layout = await elk.layout(elkGraph);
+        const posMap = new Map<string, { x: number; y: number }>();
+        const newNodes: Node[] = [];
+
+        // Map layout positions. We compute global coordinates by adding parent offsets.
+        layout.children?.forEach((clusterNode: any) => {
+          const cx = clusterNode.x ?? 0;
+          const cy = clusterNode.y ?? 0;
+
+          // Push visual background for cluster
+          if (clusterNames.length > 1) {
+            newNodes.push({
+              id: clusterNode.id,
+              type: "cluster",
+              data: { label: clusterNode.id.replace("cluster-", "") },
+              position: { x: cx, y: cy },
+              style: { width: clusterNode.width ?? 0, height: clusterNode.height ?? 0, zIndex: -1 },
+              selectable: false,
+              draggable: false,
+            });
+          }
+
+          clusterNode.children?.forEach((child: any) => {
+            posMap.set(child.id, {
+              x: cx + (child.x ?? 0),
+              y: cy + (child.y ?? 0),
+            });
+          });
+        });
+
+        // Paper nodes
+        for (const n of data.nodes) {
+          const pos = posMap.get(n.id) || { x: 0, y: 0 };
+          newNodes.push({
+            id: n.id,
+            type: "paper",
+            data: {
+              label: n.label,
+              year: n.year,
+              authors: n.authors,
+              citation_count: n.citation_count,
+            },
+            position: pos,
+          });
+        }
+
+        // Edges
+        const newEdges: Edge[] = data.edges.map((e, i) => ({
+          id: `e${i}`,
+          source: e.source,
+          target: e.target,
+          type: "semantic",
+          data: { intent: e.intent || "General Reference", context: e.context || "", weight: e.weight },
+          animated: true,
+          style: { strokeWidth: 2.5 },
+        }));
+
+        setNodes(newNodes);
+        setEdges(newEdges);
+
+        // Fit view after layout
+        setTimeout(() => fitView({ padding: 0.15 }), 100);
+      } catch (err) {
+        console.error("ELK layout error:", err);
+        // Fallback: circular layout
+        const cx = 400, cy = 300, radius = Math.max(200, data.nodes.length * 30);
+        const newNodes: Node[] = data.nodes.map((n, i) => {
+          const angle = (2 * Math.PI * i) / data.nodes.length;
+          return {
+            id: n.id,
+            type: "paper",
+            data: { label: n.label, year: n.year, authors: n.authors, citation_count: n.citation_count },
+            position: { x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) },
+          };
+        });
+        const newEdges: Edge[] = data.edges.map((e, i) => ({
+          id: `e${i}`,
+          source: e.source,
+          target: e.target,
+          type: "semantic",
+          data: { intent: e.intent || "General Reference", context: e.context || "" },
+          animated: true,
+        }));
+        setNodes(newNodes);
+        setEdges(newEdges);
+        setTimeout(() => fitView({ padding: 0.15 }), 100);
+      }
+    };
+
+    runLayout();
+  }, [data, fitView]);
+
+  return (
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
+      fitView
+      minZoom={0.1}
+      maxZoom={3}
+      proOptions={{ hideAttribution: true }}
+      nodesDraggable
+      defaultEdgeOptions={{ animated: true }}
+    >
+      <ArrowDefs />
+      <Background color="#27272a" gap={24} size={1} />
+      <Controls
+        className="!bg-zinc-900 !border-zinc-700 !text-zinc-300 !shadow-xl"
+        showInteractive={false}
+      />
+      <MiniMap
+        nodeColor={() => "#10b981"}
+        maskColor="rgba(0,0,0,0.7)"
+        className="!bg-zinc-900 !border-zinc-700"
+        pannable
+        zoomable
+      />
+    </ReactFlow>
+  );
 }
 
 export default function RelationsGraph({ loading, error, data }: Props) {
-  const [hoverNode, setHoverNode] = useState<string | null>(null);
-  const [hoverLink, setHoverLink] = useState<{ s: string; t: string } | null>(null);
-  const fgRef = useRef<any>(null);
-
-  // react-force-graph mutates the data object. Build a stable copy each time
-  // `data` changes; keys = `id` for nodes, `source`/`target` for links.
-  const graphData = useMemo(() => {
-    if (!data) return { nodes: [], links: [] };
-    return {
-      nodes: data.nodes.map((n) => ({ ...n })),
-      links: data.edges.map((e) => ({
-        source: e.source,
-        target: e.target,
-        weight: e.weight,
-      })),
-    };
-  }, [data]);
-
-  // Adjacency map so hover can dim non-neighbors in O(1) per node.
-  const neighbors = useMemo(() => {
-    const m = new Map<string, Set<string>>();
-    if (!data) return m;
-    for (const e of data.edges) {
-      if (!m.has(e.source)) m.set(e.source, new Set());
-      if (!m.has(e.target)) m.set(e.target, new Set());
-      m.get(e.source)!.add(e.target);
-      m.get(e.target)!.add(e.source);
-    }
-    return m;
-  }, [data]);
-
-  // When an edge is hovered, light up its two endpoints too — gives spatial
-  // context to "which connection is this?".
-  const linkEndpoints: { s: string; t: string } | null = hoverLink;
-
-  function nodeTooltip(n: any): string {
-    const esc = (s: string) =>
-      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const parts: string[] = [`<b>${esc(n.label || "(untitled)")}</b>`];
-    const sub: string[] = [];
-    if (n.year) sub.push(String(n.year));
-    if (n.authors?.length) sub.push(esc(n.authors.join(", ")));
-    if (sub.length) parts.push(sub.join(" — "));
-    if (typeof n.citation_count === "number" && n.citation_count > 0) {
-      parts.push(`${n.citation_count} citations`);
-    }
-    if (n.is_seed) {
-      parts.push(`<i>seed paper</i>`);
-    } else if (typeof n.score === "number") {
-      parts.push(`similarity score: <b>${n.score.toFixed(3)}</b>`);
-    }
-    return parts.join("<br>");
-  }
-
-  function linkTooltip(l: any): string {
-    const w = typeof l.weight === "number" ? l.weight.toFixed(3) : "?";
-    return `similarity: <b>${w}</b><br><span style="opacity:.7">(refs cosine + citers cosine)</span>`;
-  }
-
-  const fitView = () => fgRef.current?.zoomToFit?.(400, 40);
-
   return (
     <section>
       <div className="flex items-end justify-between mb-3">
@@ -113,153 +245,26 @@ export default function RelationsGraph({ loading, error, data }: Props) {
         <Legend />
       </div>
       <p className="text-xs text-zinc-400 mb-2">
-        Bright dots = seed papers from the list above. Edges combine{" "}
-        <em>bibliographic coupling</em> (shared references) and{" "}
-        <em>co-citation</em> (shared citers). Hover a dot to highlight its
-        connections; drag to pan, scroll to zoom.
+        Hover nodes for details. Click edge labels to see citation context. Drag nodes to rearrange.
       </p>
-      {loading && (
-        <p className="text-zinc-400">Building the graph (this can take ~30s)…</p>
-      )}
+
+      {loading && <p className="text-zinc-400">Building the graph (this can take ~30s)…</p>}
       {error && <p className="text-red-400 text-sm">{error}</p>}
       {!loading && data && data.nodes.length === 0 && (
         <p className="text-zinc-500 text-sm">Not enough citation data to build a graph.</p>
       )}
-      <div
-        className="relative border border-zinc-800 rounded-lg overflow-hidden"
-        style={{ height: 520, background: CANVAS_BG }}
-      >
-        {graphData.nodes.length > 0 && (
-          <>
-            <ForceGraph2D
-              ref={fgRef}
-              graphData={graphData}
-              height={520}
-              backgroundColor={CANVAS_BG}
-              nodeRelSize={3}
-              cooldownTicks={120}
-              d3VelocityDecay={0.35}
-              // Keep the canvas repainting after the engine cools down so hover
-              // state updates are reflected. The simulation itself stops
-              // applying forces (cooldownTicks=120) so the scene is static and
-              // continuous redraws of a static scene are not perceptible.
-              autoPauseRedraw={false}
-              nodeLabel={nodeTooltip}
-              linkLabel={linkTooltip}
-              nodeCanvasObject={(node: any, ctx, scale) => {
-                const isSeed = !!node.is_seed;
-                const isHover = hoverNode === node.id;
-                const isLinkEndpoint =
-                  !!linkEndpoints &&
-                  (linkEndpoints.s === node.id || linkEndpoints.t === node.id);
-                const isNeighbor =
-                  hoverNode != null &&
-                  !isHover &&
-                  !!neighbors.get(hoverNode)?.has(node.id);
-                const dim =
-                  (hoverNode != null && !isHover && !isNeighbor) ||
-                  (hoverLink != null && !isLinkEndpoint);
 
-                const baseR = nodeRadius(node);
-                const r = isHover || isLinkEndpoint ? baseR * HOVER_SCALE : baseR;
-
-                ctx.beginPath();
-                ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
-                if (isHover || isLinkEndpoint) {
-                  ctx.fillStyle = HOVER_FILL;
-                } else if (isSeed) {
-                  ctx.fillStyle = dim ? SEED_DIM : SEED_FILL;
-                } else {
-                  ctx.fillStyle = dim ? NODE_DIM : NODE_FILL;
-                }
-                ctx.fill();
-
-                // Bright outline around focused node makes it pop out from the
-                // surrounding amber-ringed neighbors.
-                if (isHover || isLinkEndpoint) {
-                  ctx.lineWidth = Math.max(1.6 / scale, 0.6);
-                  ctx.strokeStyle = HOVER_RING;
-                  ctx.stroke();
-                } else if (isNeighbor) {
-                  ctx.lineWidth = Math.max(1.2 / scale, 0.5);
-                  ctx.strokeStyle = NEIGHBOR_ACCENT;
-                  ctx.stroke();
-                }
-
-                const showLabel = isHover || isLinkEndpoint || isNeighbor || scale > 3.8;
-                if (!showLabel) return;
-
-                const raw = (node.label || "") as string;
-                const big = isHover || isLinkEndpoint;
-                const max = big ? 80 : 36;
-                const txt = raw.length > max ? raw.slice(0, max - 1) + "…" : raw;
-                const size = big
-                  ? Math.max(12 / scale, 4.2)
-                  : Math.max(9.5 / scale, 3.2);
-                ctx.font = `${big ? 600 : 400} ${size}px sans-serif`;
-                ctx.textBaseline = "middle";
-                ctx.lineWidth = Math.max(3 / scale, 0.8);
-                ctx.strokeStyle = LABEL_HALO;
-                ctx.strokeText(txt, node.x + r + 2, node.y);
-                ctx.fillStyle = big ? LABEL_HOVER : LABEL_FILL;
-                ctx.fillText(txt, node.x + r + 2, node.y);
-              }}
-              // Hit area scales with visible dot size. A uniform large radius
-              // makes seeds steal the pointer area of nearby small nodes.
-              nodePointerAreaPaint={(node: any, color, ctx) => {
-                const r = node.is_seed ? SEED_HIT_R : NODE_HIT_R;
-                ctx.beginPath();
-                ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
-                ctx.fillStyle = color;
-                ctx.fill();
-              }}
-              onNodeHover={(n: any) => setHoverNode(n ? n.id : null)}
-              linkColor={(l: any) => {
-                const src = typeof l.source === "object" ? l.source.id : l.source;
-                const tgt = typeof l.target === "object" ? l.target.id : l.target;
-                const isHoverLink =
-                  hoverLink && hoverLink.s === src && hoverLink.t === tgt;
-                if (isHoverLink) return HOVER_FILL;
-                if (hoverNode != null) {
-                  const touches = src === hoverNode || tgt === hoverNode;
-                  return touches ? EDGE_NEIGHBOR : EDGE_DIM;
-                }
-                if (hoverLink != null) return EDGE_DIM;
-                return EDGE_BASE;
-              }}
-              linkWidth={(l: any) => {
-                const src = typeof l.source === "object" ? l.source.id : l.source;
-                const tgt = typeof l.target === "object" ? l.target.id : l.target;
-                const isHoverLink =
-                  hoverLink && hoverLink.s === src && hoverLink.t === tgt;
-                const base = Math.max(0.7, (l.weight ?? 0) * 1.8);
-                if (isHoverLink) return base + 2.0;
-                if (hoverNode != null && (src === hoverNode || tgt === hoverNode)) {
-                  return base + 0.8;
-                }
-                return base;
-              }}
-              onLinkHover={(l: any) => {
-                if (!l) return setHoverLink(null);
-                const src = typeof l.source === "object" ? l.source.id : l.source;
-                const tgt = typeof l.target === "object" ? l.target.id : l.target;
-                setHoverLink({ s: src, t: tgt });
-              }}
-              linkHoverPrecision={6}
-            />
-            <button
-              onClick={fitView}
-              className="absolute top-2 right-2 px-2.5 py-1 text-xs rounded-md bg-zinc-900/80 border border-zinc-800 text-zinc-300 hover:text-zinc-100 hover:border-zinc-700 transition-colors backdrop-blur"
-              title="Fit graph to view"
-            >
-              Fit view
-            </button>
-          </>
+      <div className="relative border border-zinc-800 rounded-xl overflow-hidden bg-[#09090b]" style={{ height: 750 }}>
+        {!loading && data && data.nodes.length > 0 && (
+          <ReactFlowProvider>
+            <GraphInner data={data} />
+          </ReactFlowProvider>
         )}
       </div>
+
       {data && (
         <p className="text-xs text-zinc-500 mt-2">
-          {data.nodes.length} nodes · {data.edges.length} edges · larger dots = higher similarity
+          {data.nodes.length} papers · {data.edges.length} connections
         </p>
       )}
     </section>
@@ -268,26 +273,20 @@ export default function RelationsGraph({ loading, error, data }: Props) {
 
 function Legend() {
   return (
-    <div className="flex items-center gap-3 text-[11px] text-zinc-400">
-      <LegendDot color={SEED_FILL} label="seed" />
-      <LegendDot color={NODE_FILL} label="related" />
-      <LegendDot color={HOVER_FILL} label="hovered" />
-      <LegendDot color={NEIGHBOR_ACCENT} label="connected" ring />
+    <div className="flex items-center gap-3 text-[11px] text-zinc-400 flex-wrap">
+      <LegendDot color="#10b981" label="Builds Upon" />
+      <LegendDot color="#3b82f6" label="Applies Method" />
+      <LegendDot color="#ef4444" label="Refutes" />
+      <LegendDot color="#a78bfa" label="Similar" />
+      <LegendDot color="#71717a" label="General" />
     </div>
   );
 }
 
-function LegendDot({ color, label, ring }: { color: string; label: string; ring?: boolean }) {
+function LegendDot({ color, label }: { color: string; label: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <span
-        className="inline-block h-2.5 w-2.5 rounded-full"
-        style={
-          ring
-            ? { background: "transparent", boxShadow: `inset 0 0 0 1.5px ${color}` }
-            : { background: color }
-        }
-      />
+    <span className="inline-flex items-center gap-1">
+      <span className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />
       {label}
     </span>
   );

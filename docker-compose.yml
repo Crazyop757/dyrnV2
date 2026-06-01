@@ -33,6 +33,8 @@ services:
       - OPENALEX_EMAIL=${OPENALEX_EMAIL:-}
       - CROSSREF_EMAIL=${CROSSREF_EMAIL:-}
       - PUBMED_API_KEY=${PUBMED_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
     volumes:
       - research-cache:/app/.cache
     restart: unless-stopped

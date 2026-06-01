@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 BASE = "https://api.semanticscholar.org/graph/v1"
 PAPER_FIELDS = (
     "paperId,title,abstract,year,venue,authors.name,"
-    "citationCount,referenceCount,externalIds,openAccessPdf,url,tldr"
+    "citationCount,referenceCount,externalIds,openAccessPdf,url,tldr,embedding.specter_v2"
 )
 # S2 free tier is ~1 req/sec across endpoints. With a key the published limit
 # is ~100 req/sec — we sleep a small amount anyway to avoid bursting.
@@ -35,6 +35,7 @@ def _to_dict(p: dict[str, Any]) -> dict[str, Any]:
     ext = p.get("externalIds") or {}
     oa = p.get("openAccessPdf") or {}
     tldr = p.get("tldr") or {}
+    emb = p.get("embedding") or {}
     return {
         "id": p.get("paperId") or "",
         "title": p.get("title") or "(untitled)",
@@ -49,6 +50,7 @@ def _to_dict(p: dict[str, Any]) -> dict[str, Any]:
         "pdf_url": oa.get("url") or None,
         "url": p.get("url"),
         "tldr": tldr.get("text"),
+        "specter_v2": emb.get("vector") or [],
         "source": "semantic_scholar",
     }
 
@@ -126,16 +128,17 @@ class SemanticScholar:
 
     async def get_links_batch(
         self, ids: list[str]
-    ) -> dict[str, tuple[set[str], set[str]]]:
+    ) -> dict[str, tuple[dict[str, Any], dict[str, Any]]]:
         """Bulk-fetch (references, citers) for many papers in one call per chunk.
-
-        The S2 batch endpoint accepts up to 500 IDs and can return nested
-        references/citations fields — this lets us avoid one HTTP call per
-        paper for graph building.
+        
+        Returns dict of paperId -> (refs_dict, citers_dict) where the nested
+        dicts map a target paperId to its edge data.
+        Note: The batch endpoint only supports paperId for nested references/citations.
+        Contexts and intents must be fetched per-paper if needed.
         """
         if not ids:
             return {}
-        out: dict[str, tuple[set[str], set[str]]] = {}
+        out: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
         for start in range(0, len(ids), 400):
             chunk = ids[start : start + 400]
             r = await self._request(
@@ -150,16 +153,20 @@ class SemanticScholar:
                 if not item or not item.get("paperId"):
                     continue
                 pid = item["paperId"]
-                refs = {
-                    (ref or {}).get("paperId")
-                    for ref in (item.get("references") or [])
-                    if (ref or {}).get("paperId")
-                }
-                citers = {
-                    (cit or {}).get("paperId")
-                    for cit in (item.get("citations") or [])
-                    if (cit or {}).get("paperId")
-                }
+                refs = {}
+                for ref in (item.get("references") or []):
+                    if not ref:
+                        continue
+                    ref_id = ref.get("paperId")
+                    if ref_id:
+                        refs[ref_id] = {"contexts": [], "intents": []}
+                citers = {}
+                for cit in (item.get("citations") or []):
+                    if not cit:
+                        continue
+                    cit_id = cit.get("paperId")
+                    if cit_id:
+                        citers[cit_id] = {"contexts": [], "intents": []}
                 out[pid] = (refs, citers)
         return out
 

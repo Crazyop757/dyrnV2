@@ -1,0 +1,69 @@
+scripts/init_vane.sh
+  s_ff97bde9ffcf63::t_f651cea98946d8 16-18,20,29-33,37,42-43
+  s_ff97bde9ffcf63::t_dd3b0ac2b9bb6f 9-15,19,21-28,34-36,38-41,45
+research-api/llm.py
+  s_ff97bde9ffcf63::t_82087f2c1b9ec0 1-50
+research-api/graph.py
+  s_ff97bde9ffcf63::t_4b796a21f55d30 30-32
+  s_ff97bde9ffcf63::t_1e102181287941 16
+web/app/api/vane/[...path]/route.ts
+  s_ff97bde9ffcf63::t_8bc2220f46be31 93-100
+  s_ff97bde9ffcf63::t_963d0edbf0b8ee 46-60
+deploy/hf/start.sh
+  s_ff97bde9ffcf63::t_04d9265b5668a4 1-19
+.env.example
+  s_ff97bde9ffcf63::t_8bd7ced3875334 2-43
+deploy/hf/init_providers.sh
+  s_ff97bde9ffcf63::t_73d4a72d310bc8 1-52
+web/package-lock.json
+  ai_agent 11-12,285-312,315-333,412,430-433,435-469,750-755,979-984,2402,3308-3316,3368-3393
+research-api/main.py
+  s_ff97bde9ffcf63::t_a9e3abc4f6ca17 425-427
+  s_ff97bde9ffcf63::t_fa5530b16ee117 533
+  s_ff97bde9ffcf63::t_a7308eb1b106ba 354
+  s_ff97bde9ffcf63::t_9fc4c57c92f449 285-286
+  s_ff97bde9ffcf63::t_6a977850f20dc7 28
+  s_ff97bde9ffcf63::t_41cb84280f8673 317
+web/app/api/config/route.ts
+  s_ff97bde9ffcf63::t_554359faa267ed 1-16
+web/app/api/research/[...path]/route.ts
+  s_ff97bde9ffcf63::t_d6b9bad6bc99e4 1-81
+deploy/hf/README.md
+  s_ff97bde9ffcf63::t_a08cf2dc8fdd4b 1-27
+web/lib/vane.ts
+  s_ff97bde9ffcf63::t_d435e16eedb9ba 54-65,70-74,79,82-105
+  s_ff97bde9ffcf63::t_28f699a92b98b8 28-35
+docker-compose.yml
+  s_ff97bde9ffcf63::t_af04a0bc3df4f5 67-73,79,82-83
+  s_ff97bde9ffcf63::t_d9e313f8eb046b 34
+  s_ff97bde9ffcf63::t_ee70fee6fdfe35 52-54,56,58
+  s_ff97bde9ffcf63::t_7d1f52734649eb 19-22
+README.md
+  s_ff97bde9ffcf63::t_96bf741c0dfd57 26-48,73-74,77-84
+  s_ff97bde9ffcf63::t_79c64ee2e579b5 49-72
+  s_ff97bde9ffcf63::t_a677ede69f1922 75-76,85-89
+deploy/hf/Dockerfile
+  s_ff97bde9ffcf63::t_9db28e661e7b4e 1-50
+deploy/hf/.dockerignore
+  s_ff97bde9ffcf63::t_e61b5a7dc07484 1-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "e763ab1b23327321fbf511455b08e5bced8054df",
+  "prompts": {},
+  "sessions": {
+    "s_ff97bde9ffcf63": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "24583d44-d98a-453e-a512-baf55a4d716c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Crazyop757 <83007860+Crazyop757@users.noreply.github.com>",
+      "total_additions": 552,
+      "total_deletions": 70,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}

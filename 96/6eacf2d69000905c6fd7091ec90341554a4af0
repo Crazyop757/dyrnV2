@@ -1,0 +1,29 @@
+web/app/page.tsx
+  s_ff97bde9ffcf63::t_a3fbd40f9ed90c 91-94
+web/app/api/vane/[...path]/route.ts
+  s_ff97bde9ffcf63::t_780ea2b560d9d6 40-41
+web/app/api/debug/searx/route.ts
+  s_ff97bde9ffcf63::t_7806d1c81c599f 1-41
+web/lib/vane.ts
+  s_ff97bde9ffcf63::t_dc06ba9d58f67c 131-134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "966eacf2d69000905c6fd7091ec90341554a4af0",
+  "prompts": {},
+  "sessions": {
+    "s_ff97bde9ffcf63": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "24583d44-d98a-453e-a512-baf55a4d716c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Crazyop757 <83007860+Crazyop757@users.noreply.github.com>",
+      "total_additions": 51,
+      "total_deletions": 3,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -37,7 +37,8 @@ async function proxy(req: Request, pathParts: string[]) {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 180_000); // 3 min
+  // 4.5 min — Vane searches on small free-tier hardware can exceed 3 min.
+  const timeout = setTimeout(() => controller.abort(), 270_000);
   init.signal = controller.signal;
 
   try {

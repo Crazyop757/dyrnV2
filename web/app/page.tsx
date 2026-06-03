@@ -88,7 +88,10 @@ export default function Page() {
     const stillActive = () => activeRunId.current === fresh.id;
 
     const overviewP = search({
-      query: topic,
+      // Phrase as an explicit research request — Vane's intent classifier
+      // skips searching for bare topic strings ("X for Y"), which leaves the
+      // answer ungrounded (and strict models then refuse to answer at all).
+      query: `Recent academic research and literature on: ${topic}`,
       models,
       sources: ["academic", "web"],
       systemInstructions:

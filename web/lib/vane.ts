@@ -128,7 +128,10 @@ export async function search({
     sources,
     query,
     history: history ?? [],
-    optimizationMode: "balanced",
+    // "speed" — "balanced" scrapes pages with per-chunk LLM calls and takes
+    // 3+ minutes on small free-tier hardware, blowing the proxy timeout.
+    // Speed mode answers in ~20-30s and still cites 10+ academic sources.
+    optimizationMode: "speed",
     stream: false,
     ...(systemInstructions ? { systemInstructions } : {}),
   };

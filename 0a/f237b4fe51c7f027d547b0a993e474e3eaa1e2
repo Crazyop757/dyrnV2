@@ -1,0 +1,31 @@
+web/components/Sidebar.tsx
+  s_ff97bde9ffcf63::t_bdfc03aa368db1 28-48
+web/app/icon.svg
+  s_ff97bde9ffcf63::t_6dec0089a298f1 1-22
+deploy/hf/README.md
+  s_ff97bde9ffcf63::t_e09520aa61bc9d 2-3,5,11
+web/app/layout.tsx
+  s_ff97bde9ffcf63::t_89dac46465a089 12-13
+README.md
+  s_ff97bde9ffcf63::t_5186fd2a639cb7 51-52,67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "0af237b4fe51c7f027d547b0a993e474e3eaa1e2",
+  "prompts": {},
+  "sessions": {
+    "s_ff97bde9ffcf63": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "24583d44-d98a-453e-a512-baf55a4d716c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Crazyop757 <83007860+Crazyop757@users.noreply.github.com>",
+      "total_additions": 52,
+      "total_deletions": 13,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}

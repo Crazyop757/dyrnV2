@@ -23,6 +23,8 @@ export type GraphNode = {
   year: number | null;
   authors: string[];
   citation_count: number;
+  url?: string | null;
+  tldr?: string | null;
   is_seed?: boolean;
   score?: number | null;
   cluster?: string;
@@ -53,26 +55,97 @@ export type VaneProvider = {
 };
 
 export type PaperSections = {
-  limitations: string | null;
-  future_work: string | null;
-  conclusions: string | null;
+  limitations: string[];
+  future_work: string[];
+  conclusions: string[];
 };
 
 export type ExtractResponse = {
   sections: Record<string, PaperSections>;
 };
 
-export type GapVerification = {
-  query: string;
-  total: number;
-  confidence: "confirmed" | "partial" | "unlikely";
-  papers: { title: string; year: number | null; url: string | null }[];
+export type GapType =
+  | "methodological"
+  | "knowledge"
+  | "empirical"
+  | "population"
+  | "theoretical"
+  | "evidence_contradictory"
+  | "practical";
+
+export type GapGrounding = {
+  paper_title: string;
+  year: number | null;
+  quote: string;
+  section: "limitations" | "future_work" | "abstract";
 };
 
-export type GapAnalysis = {
-  message: string;
-  sources: VaneSource[];
-  verifications: GapVerification[];
+export type GapGraphSignal = {
+  type: "white_space" | "contradiction" | "bridge";
+  description: string;
+};
+
+export type GapVerification = {
+  confidence: "confirmed" | "partial" | "unlikely" | "incoherent" | "error" | "unverified";
+  relevant_count: number;
+  queries_used: string[];
+  indices_searched: string[];
+  sample_papers: { title: string; year: number | null; url: string | null }[];
+  status: string;
+};
+
+export type Gap = {
+  id: string;
+  statement: string;
+  type: GapType;
+  grounding: GapGrounding[];
+  graph_signal: GapGraphSignal | null;
+  verification: GapVerification;
+  verification_queries: string[];
+  egm_cell?: { dim1: string; dim2: string; count: number } | null;
+};
+
+export type GapMapClusterPair = {
+  cluster_a: string;
+  cluster_b: string;
+  similarity: number;
+  citation_count: number;
+  gap_count: number;
+};
+
+export type EGMCell = {
+  dim2_value: string;
+  count: number;
+  paper_titles: string[];
+};
+
+export type EGMRow = {
+  dim1_value: string;
+  cells: EGMCell[];
+};
+
+export type EGMEmptyCell = {
+  dim1_value: string;
+  dim2_value: string;
+  count: number;
+  gap_statement: string;
+};
+
+export type EvidenceGapMatrix = {
+  dim1_label: string;
+  dim2_label: string;
+  dim1_values: string[];
+  dim2_values: string[];
+  matrix: EGMRow[];
+  empty_cells: EGMEmptyCell[];
+};
+
+export type GapAnalysisResponse = {
+  gaps: Gap[];
+  gap_map: {
+    cluster_pairs: GapMapClusterPair[];
+  };
+  egm: EvidenceGapMatrix | null;
 };
 
 export type ChatTurn =

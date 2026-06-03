@@ -4,10 +4,9 @@
 #   web           : Our Next.js frontend — the single page the user sees
 #
 # Usage:
-#   1. cp .env.example .env  and paste your OpenAI key
+#   1. cp .env.example .env  and fill in OPENAI_API_KEY (and optional keys)
 #   2. docker compose up --build
-#   3. Open http://localhost:3000 once, finish Vane's setup screen (add OpenAI key)
-#   4. Open http://localhost:3001 to use the research MVP
+#   3. Open http://localhost:3001 — Vane is configured automatically via vane-init
 
 services:
   vane:
@@ -17,10 +16,27 @@ services:
       # Host port 3002 to avoid colliding with anything that may already be on
       # 3000 on this machine. Inside the Docker network the container still
       # listens on :3000, which is what the `web` service reaches.
-      - "3002:3000"
+      # SECURITY: bound to 127.0.0.1 — Vane's UI/API exposes the raw LLM API
+      # keys, so it must never face the public internet. Reach it from your
+      # laptop via an SSH tunnel if needed: ssh -L 3002:localhost:3002 <vm>
+      - "127.0.0.1:3002:3000"
     volumes:
       - vane-data:/home/vane/data
     restart: unless-stopped
+
+  vane-init:
+    image: curlimages/curl:latest
+    container_name: research-vane-init
+    depends_on:
+      - vane
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+    volumes:
+      - ./scripts/init_vane.sh:/init_vane.sh:ro
+    entrypoint: /bin/sh
+    command: /init_vane.sh
+    restart: "no"
 
   research-api:
     build:
@@ -33,8 +49,13 @@ services:
       - OPENALEX_EMAIL=${OPENALEX_EMAIL:-}
       - CROSSREF_EMAIL=${CROSSREF_EMAIL:-}
       - PUBMED_API_KEY=${PUBMED_API_KEY:-}
+      # LLM control panel — switch providers by editing .env, then:
+      #   docker compose up -d research-api web
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GROQ_MODEL=${GROQ_MODEL:-}
     volumes:
       - research-cache:/app/.cache
     restart: unless-stopped
@@ -43,16 +64,23 @@ services:
     build:
       context: ./web
       args:
-        # Public env vars baked into Next.js client bundle.
-        NEXT_PUBLIC_VANE_URL: http://localhost:3002
-        NEXT_PUBLIC_RESEARCH_API_URL: http://localhost:8000
+        # Public env vars baked into Next.js client bundle. For a real
+        # deployment set these in .env to the server's public address, e.g.
+        #   NEXT_PUBLIC_VANE_URL=http://<server-ip>:3002
+        #   NEXT_PUBLIC_RESEARCH_API_URL=http://<server-ip>:8000
+        # then rebuild: docker compose up -d --build web
+        NEXT_PUBLIC_VANE_URL: ${NEXT_PUBLIC_VANE_URL:-http://localhost:3002}
+        NEXT_PUBLIC_RESEARCH_API_URL: ${NEXT_PUBLIC_RESEARCH_API_URL:-http://localhost:8000}
     container_name: research-web
     ports:
       - "3001:3000"
     environment:
       # Server-side env (used by Next.js API routes if any).
+      - HOSTNAME=0.0.0.0
       - VANE_URL=http://vane:3000
       - RESEARCH_API_URL=http://research-api:8000
+      # Read at runtime by /api/config — switching providers needs no rebuild.
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
     depends_on:
       - vane
       - research-api

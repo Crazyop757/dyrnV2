@@ -104,6 +104,75 @@ class SemanticScholar:
         data = (r.json() or {}).get("data") or []
         return [_to_dict(p) for p in data if p.get("paperId")]
 
+    async def search_papers_safe(self, query: str, limit: int = 50) -> tuple[list[dict[str, Any]], bool]:
+        """Like search_papers but distinguishes transport errors from genuine-empty results.
+        Returns (results, True) on success, ([], False) on any transport/rate-limit error.
+        """
+        r = await self._request(
+            "GET",
+            "/paper/search",
+            params={"query": query, "limit": min(limit, 100), "fields": PAPER_FIELDS},
+        )
+        if r is None:
+            return [], False  # transport error / rate-limit — NOT genuine empty
+        data = (r.json() or {}).get("data") or []
+        return [_to_dict(p) for p in data if p.get("paperId")], True
+
+    async def get_references_with_context(
+        self, paper_id: str, limit: int = 50
+    ) -> dict[str, dict[str, Any]]:
+        """Fetch references with citation contexts and intents for a single paper.
+        Returns dict of cited_paper_id -> {contexts: [...], intents: [...]}.
+        """
+        r = await self._request(
+            "GET",
+            f"/paper/{paper_id}/references",
+            params={"limit": min(limit, 500), "fields": "paperId,contexts,intents"},
+        )
+        if r is None:
+            return {}
+        out: dict[str, dict[str, Any]] = {}
+        for item in (r.json() or {}).get("data") or []:
+            cited = (item or {}).get("citedPaper") or {}
+            pid = cited.get("paperId")
+            if pid:
+                out[pid] = {
+                    "contexts": item.get("contexts") or [],
+                    "intents": item.get("intents") or [],
+                }
+        return out
+
+    async def get_citations_with_context(
+        self, paper_id: str, limit: int = 30
+    ) -> list[dict[str, Any]]:
+        """Fetch papers that cite paper_id, with their citation contexts and intents.
+        Returns list of {paper_id, title, year, contexts, intents}.
+        """
+        r = await self._request(
+            "GET",
+            f"/paper/{paper_id}/citations",
+            params={
+                "limit": min(limit, 500),
+                "fields": "paperId,title,year,contexts,intents",
+            },
+        )
+        if r is None:
+            return []
+        out: list[dict[str, Any]] = []
+        for item in (r.json() or {}).get("data") or []:
+            citing = (item or {}).get("citingPaper") or {}
+            pid = citing.get("paperId")
+            if not pid:
+                continue
+            out.append({
+                "paper_id": pid,
+                "title": citing.get("title") or "(untitled)",
+                "year": citing.get("year"),
+                "contexts": item.get("contexts") or [],
+                "intents": item.get("intents") or [],
+            })
+        return out
+
     async def get_papers_batch(self, ids: list[str]) -> dict[str, dict[str, Any]]:
         """Batch lookup, up to ~500 ids per call per S2 docs."""
         if not ids:

@@ -43,7 +43,21 @@ async function proxy(req: Request, pathParts: string[]) {
   try {
     const upstream = await fetch(target, init);
     clearTimeout(timeout);
-    const body = await upstream.text();
+    let body = await upstream.text();
+    // SECURITY: Vane's /providers response includes each provider's raw API
+    // key in `config`. The frontend only needs id/name/model lists, so strip
+    // the config before the response leaves our server.
+    if (pathParts[0] === "providers" && upstream.ok) {
+      try {
+        const data = JSON.parse(body);
+        const strip = (p: any) => (p && typeof p === "object" ? { ...p, config: undefined, hash: undefined } : p);
+        if (Array.isArray(data?.providers)) data.providers = data.providers.map(strip);
+        if (data?.provider) data.provider = strip(data.provider);
+        body = JSON.stringify(data);
+      } catch {
+        // Non-JSON body — pass through unchanged.
+      }
+    }
     return new Response(body, {
       status: upstream.status,
       headers: {
@@ -76,5 +90,13 @@ export const GET = async (req: Request, ctx: Ctx) => {
 };
 export const POST = async (req: Request, ctx: Ctx) => {
   const { path } = await ctx.params;
+  // Only /search needs POST from the browser. Provider management goes
+  // directly to Vane from vane-init — don't expose it to the public internet.
+  if (path[0] !== "search") {
+    return new Response(JSON.stringify({ error: "Not allowed" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
   return proxy(req, path);
 };

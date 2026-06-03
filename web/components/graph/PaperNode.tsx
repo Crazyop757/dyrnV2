@@ -2,52 +2,115 @@
 
 import { Handle, Position } from "@xyflow/react";
 
-export default function PaperNode({ data }: { data: any }) {
-  const title = data.label || "(untitled)";
-  const shortTitle = title.length > 40 ? title.slice(0, 38) + "…" : title;
-  const year = data.year;
-  const citations = data.citation_count || 0;
+type ClusterColor = { border: string; glow: string };
 
-  // Size the node based on citation count
-  const size = Math.max(60, Math.min(90, 50 + Math.log2(citations + 1) * 8));
+export default function PaperNode({ data }: { data: any }) {
+  const title: string = data.label || "(untitled)";
+  const year: number | null = data.year;
+  const citations: number = data.citation_count || 0;
+  const url: string | null = data.url ?? null;
+  const tldr: string | null = data.tldr ?? null;
+  const cluster: string = data.cluster ?? "";
+  const clusterColor: ClusterColor = data.clusterColor ?? { border: "#10b981", glow: "rgba(16,185,129,0.25)" };
+
+  // Scale node size 64–92px by log(citations)
+  const size = Math.max(64, Math.min(92, 50 + Math.log2(citations + 1) * 8));
+  const shortTitle = title.length > 38 ? title.slice(0, 36) + "…" : title;
+
+  const handleClick = () => {
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
+  };
 
   return (
-    <div
-      className="group relative"
-      style={{ width: size, height: size }}
-    >
-      <Handle type="target" position={Position.Left} className="!bg-emerald-400 !w-2 !h-2 !border-zinc-900 !border-2" />
+    <div className="group relative" style={{ width: size, height: size }}>
+      <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
 
-      {/* Main circle node */}
+      {/* Main node circle */}
       <div
-        className="w-full h-full rounded-full border-2 border-zinc-600 bg-zinc-800 flex items-center justify-center cursor-pointer transition-all duration-200 hover:border-emerald-400 hover:shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:scale-110"
-        style={{ padding: 8 }}
+        onClick={handleClick}
+        className="w-full h-full rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
+        style={{
+          background: "linear-gradient(135deg, #18181b 0%, #111113 100%)",
+          border: `2px solid ${clusterColor.border}`,
+          boxShadow: `0 0 0 0 transparent`,
+          cursor: url ? "pointer" : "default",
+          padding: 8,
+        }}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLElement).style.boxShadow = `0 0 20px ${clusterColor.glow}, 0 0 0 1px ${clusterColor.border}40`;
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLElement).style.boxShadow = "0 0 0 0 transparent";
+        }}
       >
-        <span className="text-[9px] leading-tight text-center text-zinc-300 font-medium line-clamp-3 select-none">
+        <span
+          className="text-[9px] leading-tight text-center font-medium select-none"
+          style={{ color: "#d4d4d8", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+        >
           {shortTitle}
         </span>
       </div>
 
       {/* Year badge */}
       {year && (
-        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-zinc-900 border border-zinc-700 text-[8px] text-zinc-400 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+        <div
+          className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] px-1.5 py-0.5 rounded-full whitespace-nowrap"
+          style={{ background: "#09090b", border: `1px solid ${clusterColor.border}50`, color: clusterColor.border }}
+        >
           {year}
         </div>
       )}
 
-      {/* Hover tooltip with full details */}
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-56 p-3 bg-zinc-900/95 backdrop-blur border border-zinc-700 rounded-lg shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-        <p className="text-xs font-semibold text-zinc-100 leading-tight mb-1">{title}</p>
-        <p className="text-[10px] text-zinc-400">
-          {year ? `${year} · ` : ""}
-          {data.authors?.join(", ")}
-        </p>
-        {citations > 0 && (
-          <p className="text-[10px] text-emerald-400 mt-1">{citations} citations</p>
+      {/* Citation badge top-right */}
+      {citations > 0 && (
+        <div className="absolute -top-1 -right-1 bg-zinc-900 border border-zinc-700 text-[7px] text-zinc-400 px-1 py-0.5 rounded-full min-w-[18px] text-center">
+          {citations >= 1000 ? `${(citations / 1000).toFixed(1)}k` : citations}
+        </div>
+      )}
+
+      {/* Hover tooltip */}
+      <div
+        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-72 p-3.5 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 space-y-2"
+        style={{ background: "#0e0e11", border: "1px solid #2a2a2e" }}
+      >
+        {/* Cluster pill */}
+        {cluster && (
+          <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full" style={{ background: `${clusterColor.border}18`, color: clusterColor.border, border: `1px solid ${clusterColor.border}40` }}>
+            <span className="w-1 h-1 rounded-full inline-block" style={{ background: clusterColor.border }} />
+            {cluster}
+          </span>
         )}
+
+        {/* Title */}
+        <p className="text-xs font-semibold text-zinc-100 leading-snug">{title}</p>
+
+        {/* Authors */}
+        {data.authors?.length > 0 && (
+          <p className="text-[10px] text-zinc-500">
+            {data.authors.slice(0, 3).join(", ")}{data.authors.length > 3 ? " et al." : ""}
+          </p>
+        )}
+
+        {/* TLDR */}
+        {tldr && (
+          <p className="text-[10px] text-zinc-400 leading-relaxed border-l-2 pl-2" style={{ borderColor: `${clusterColor.border}60` }}>
+            {tldr}
+          </p>
+        )}
+
+        {/* Badges row */}
+        <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+          {year && <span className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">{year}</span>}
+          {citations > 0 && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded" style={{ background: `${clusterColor.border}18`, color: clusterColor.border }}>
+              {citations >= 1000 ? `${(citations / 1000).toFixed(1)}k` : citations} citations
+            </span>
+          )}
+          {url && <span className="text-[9px] text-zinc-600 italic ml-auto">click to open ↗</span>}
+        </div>
       </div>
 
-      <Handle type="source" position={Position.Right} className="!bg-emerald-400 !w-2 !h-2 !border-zinc-900 !border-2" />
+      <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
     </div>
   );
 }

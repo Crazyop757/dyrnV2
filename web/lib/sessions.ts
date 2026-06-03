@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import type { ChatTurn, GapAnalysis, GraphResponse, Paper, PaperSections, VaneAnswer } from "@/lib/types";
+import type { ChatTurn, GapAnalysisResponse, GraphResponse, Paper, VaneAnswer } from "@/lib/types";
 
 // One session = one research topic and everything the user accumulated for it:
 // the concept overview, the papers list, the relations graph, and the chat
@@ -16,8 +16,7 @@ export type Session = {
   overview: VaneAnswer | null;
   papers: Paper[];
   graph: GraphResponse | null;
-  extractedSections: Record<string, PaperSections> | null;
-  gaps: GapAnalysis | null;
+  gaps: GapAnalysisResponse | null;
   chat: ChatTurn[];
 };
 
@@ -100,7 +99,6 @@ export function createSession(topic: string): Session {
     overview: null,
     papers: [],
     graph: null,
-    extractedSections: null,
     gaps: null,
     chat: [],
   };

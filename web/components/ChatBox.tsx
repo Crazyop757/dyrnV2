@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { search, type ChatPair, type ModelChoice } from "@/lib/vane";
 import type { ChatTurn, Paper, VaneAnswer } from "@/lib/types";
 import Markdown from "./Markdown";
@@ -13,6 +13,17 @@ type Props = {
   turns: ChatTurn[];
   onTurnsChange: (next: ChatTurn[]) => void;
 };
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 mb-4">
+      <span className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+        {children}
+      </span>
+      <div className="flex-1 h-px bg-zinc-900" />
+    </div>
+  );
+}
 
 function buildContext(overview: VaneAnswer | null, papers: Paper[], topic: string): string {
   const parts: string[] = [];
@@ -44,15 +55,12 @@ function buildContext(overview: VaneAnswer | null, papers: Paper[], topic: strin
   if (papers.length > 0) {
     const lines = papers
       .slice(0, 15)
-      .map(
-        (p, i) =>
-          `${i + 1}. ${p.title}${p.year ? ` (${p.year})` : ""} — ${p.authors.slice(0, 3).join(", ")}`,
-      );
+      .map((p, i) => `${i + 1}. ${p.title}${p.year ? ` (${p.year})` : ""} — ${p.authors.slice(0, 3).join(", ")}`);
     parts.push(`The papers shown to the user are:\n${lines.join("\n")}`);
   }
   parts.push(
     "When answering follow-up questions, prefer information from the overview and papers above. " +
-      "If you do additional web searches, integrate them with this context.",
+    "If you do additional web searches, integrate them with this context.",
   );
   return parts.join("\n\n");
 }
@@ -63,12 +71,12 @@ async function classifyIntent(message: string, models: ModelChoice): Promise<str
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chatModel: models.chat,
-      query: `Classify this message into exactly one of these 
+      query: `Classify this message into exactly one of these
 modes and reply with ONLY the mode letter, nothing else:
 
 A - wants a simple explanation or definition
 B - asking about literature, gaps, or research
-C - wants a recommendation or opinion  
+C - wants a recommendation or opinion
 D - casual or conversational, very short message
 E - methodology or implementation question
 F - comparison between two or more things
@@ -89,84 +97,84 @@ Reply with a single letter or the word AMBIGUOUS.`,
 }
 
 const CONSTITUTIONS: Record<string, string> = {
-  A: `You are a research assistant. The user wants a simple 
-explanation. Give a clean 3-5 sentence answer in plain 
-language. No structure, no research framing, no gaps or 
+  A: `You are a research assistant. The user wants a simple
+explanation. Give a clean 3-5 sentence answer in plain
+language. No structure, no research framing, no gaps or
 directions. Write like a knowledgeable colleague.
 Never start with "I". No filler phrases.
 User message: `,
 
-  B: `You are a research intelligence assistant. Apply this 
+  B: `You are a research intelligence assistant. Apply this
 structure exactly:
 [ORIENT] 2-3 sentences max, research framing only
-[LITERATURE POSITION] cite papers by author and year, never 
+[LITERATURE POSITION] cite papers by author and year, never
 by index number
 [RESEARCH MOVE] label one: GAP / TENSION / EXTENSION / CRITIQUE
 [DIRECTIONS] 2-3 concrete actionable research questions
 No filler. Never start with "I".
 Researcher message: `,
 
-  C: `You are a research assistant. Give a direct recommendation 
-first, then justify briefly using papers in context. No rigid 
+  C: `You are a research assistant. Give a direct recommendation
+first, then justify briefly using papers in context. No rigid
 structure. Be opinionated — the user wants a direct answer.
 Never start with "I". No filler phrases.
 User message: `,
 
   D: `You are a research assistant. This is a casual message.
 Respond in 1-3 sentences maximum. Conversational tone only.
-No structure, no bullet points, no sources, no research 
-framing. If the user makes a general claim, either briefly 
-agree with nuance or gently push back — but in plain 
+No structure, no bullet points, no sources, no research
+framing. If the user makes a general claim, either briefly
+agree with nuance or gently push back — but in plain
 conversational language, not academic language.
 Never start with "I".
 User message: `,
 
-  E: `You are a research assistant. Give a direct practical 
+  E: `You are a research assistant. Give a direct practical
 answer. Reference what papers in context do methodologically.
-Use structure only if the answer is genuinely complex. Lead 
+Use structure only if the answer is genuinely complex. Lead
 with the actionable answer, justify after.
 Never start with "I". No filler phrases.
 User message: `,
 
-  F: `You are a research assistant. Structure the comparison 
-clearly. Use a table if comparing more than 3 dimensions. 
+  F: `You are a research assistant. Structure the comparison
+clearly. Use a table if comparing more than 3 dimensions.
 Ground comparisons in what the papers actually show.
 Never start with "I". No filler phrases.
 User message: `,
 
-  G: `You are a research assistant. Diagnose first, then fix. 
-Ask one clarifying question if the problem is ambiguous. 
+  G: `You are a research assistant. Diagnose first, then fix.
+Ask one clarifying question if the problem is ambiguous.
 Be direct and specific.
 Never start with "I". No filler phrases.
 User message: `,
 
-  H: `You are a research assistant. Engage with the idea 
-seriously as a thinking partner. Push it forward — what 
-would it require, what could go wrong, what does the 
+  H: `You are a research assistant. Engage with the idea
+seriously as a thinking partner. Push it forward — what
+would it require, what could go wrong, what does the
 literature suggest about feasibility.
 Never start with "I". No filler phrases.
 User message: `,
 
-  AMBIGUOUS: `You are a research assistant. This message 
-is very short or ambiguous, but you have access to the 
+  AMBIGUOUS: `You are a research assistant. This message
+is very short or ambiguous, but you have access to the
 conversation history above.
 
-First check: does the conversation history give enough 
+First check: does the conversation history give enough
 context to understand what the user means?
 
-If YES — answer based on that context directly. 
+If YES — answer based on that context directly.
 Match the register of the conversation. Be brief.
 
-If NO — ask exactly one short clarifying question 
-and output nothing else. Not a question followed by 
+If NO — ask exactly one short clarifying question
+and output nothing else. Not a question followed by
 an answer. Just the question.
 
-Never output both a clarifying question AND an answer 
+Never output both a clarifying question AND an answer
 in the same response.
 User message: `,
 
-  FORMAT: `You are a research assistant. The user has 
-specified an exact format or style. Follow it precisely. 
+  FORMAT: `You are a research assistant. The user has
+specified an exact format or style. Follow it precisely.
 Still cite papers by author and year where relevant.
 Never start with "I". No filler phrases.
 User message: `,
@@ -188,6 +196,7 @@ export default function ChatBox({ models, overview, papers, topic, turns, onTurn
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   const ask = async () => {
     const q = input.trim();
@@ -198,21 +207,13 @@ export default function ChatBox({ models, overview, papers, topic, turns, onTurn
     onTurnsChange(afterUser);
     setInput("");
 
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+
     try {
       const history: ChatPair[] = turns.map((t) => [t.role, t.text]);
-      
-      let mode: string;
-      if (detectFormatOverride(q)) {
-        mode = "FORMAT";
-      } else {
-        mode = await classifyIntent(q, models);
-      }
+      const mode = detectFormatOverride(q) ? "FORMAT" : await classifyIntent(q, models);
       const constitution = CONSTITUTIONS[mode] ?? CONSTITUTIONS["B"];
-
       const finalSystemInstructions = buildContext(overview, papers, topic);
-      console.log("=== EXACT SYSTEM INSTRUCTIONS TO VANE ===");
-      console.log(finalSystemInstructions);
-      console.log("=========================================");
 
       const answer = await search({
         query: constitution + q,
@@ -229,80 +230,101 @@ export default function ChatBox({ models, overview, papers, topic, turns, onTurn
       setError(e.message || String(e));
     } finally {
       setBusy(false);
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     }
   };
 
   return (
     <section>
-      <h2 className="text-xl font-semibold mb-3 text-zinc-100">Ask follow-ups</h2>
-      <div className="space-y-4 mb-4">
-        {turns.map((t, i) => (
-          <div
-            key={i}
-            className={`rounded-lg px-4 py-3 ${
-              t.role === "human"
-                ? "bg-zinc-800/60 border border-zinc-800"
-                : "bg-zinc-900/40 border border-zinc-800"
-            }`}
-          >
-            <div className="text-[11px] uppercase tracking-wide text-zinc-500 mb-1">
-              {t.role === "human" ? "You" : "Assistant"}
+      <SectionLabel>Ask follow-ups</SectionLabel>
+
+      {turns.length > 0 && (
+        <div className="space-y-3 mb-4">
+          {turns.map((t, i) => (
+            <div
+              key={i}
+              className={`rounded-xl px-4 py-3.5 ${
+                t.role === "human"
+                  ? "bg-zinc-800/50 border border-zinc-700/40 ml-8"
+                  : "bg-zinc-900/20 border border-zinc-800/50"
+              }`}
+            >
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600 mb-2">
+                {t.role === "human" ? "You" : "Assistant"}
+              </div>
+              {t.role === "human" ? (
+                <div className="text-sm leading-relaxed text-zinc-300 whitespace-pre-wrap">
+                  {t.text}
+                </div>
+              ) : (
+                <Markdown>{t.text}</Markdown>
+              )}
+              {t.role === "assistant" && t.sources && t.sources.length > 0 && (
+                <details className="text-xs mt-3">
+                  <summary className="cursor-pointer text-zinc-600 hover:text-zinc-400 transition-colors select-none">
+                    {t.sources.length} source{t.sources.length !== 1 ? "s" : ""}
+                  </summary>
+                  <ol className="mt-2 pl-4 space-y-1 text-zinc-500 list-decimal">
+                    {t.sources.map((s, j) => (
+                      <li key={j}>
+                        {s.metadata.url ? (
+                          <a
+                            href={s.metadata.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-indigo-400 hover:text-indigo-300 underline-offset-2 hover:underline transition-colors"
+                          >
+                            {s.metadata.title || s.metadata.url}
+                          </a>
+                        ) : (
+                          <span>{s.metadata.title || "(source)"}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+              )}
             </div>
-            {t.role === "human" ? (
-              <div className="whitespace-pre-wrap leading-relaxed text-zinc-200">{t.text}</div>
-            ) : (
-              <Markdown>{t.text}</Markdown>
-            )}
-            {t.role === "assistant" && t.sources && t.sources.length > 0 && (
-              <details className="text-xs mt-2">
-                <summary className="cursor-pointer text-zinc-400 hover:text-zinc-200">
-                  Sources ({t.sources.length})
-                </summary>
-                <ol className="mt-1 list-decimal pl-5 space-y-1 text-zinc-300">
-                  {t.sources.map((s, j) => (
-                    <li key={j}>
-                      {s.metadata.url ? (
-                        <a
-                          href={s.metadata.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-sky-400 hover:text-sky-300 underline"
-                        >
-                          {s.metadata.title || s.metadata.url}
-                        </a>
-                      ) : (
-                        <span>{s.metadata.title || "(source)"}</span>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              </details>
-            )}
-          </div>
-        ))}
-        {busy && <p className="text-zinc-400 text-sm">Thinking…</p>}
-        {error && <p className="text-red-400 text-sm">{error}</p>}
-      </div>
+          ))}
+
+          {busy && (
+            <div className="rounded-xl px-4 py-4 bg-zinc-900/20 border border-zinc-800/50">
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600 mb-2">
+                Assistant
+              </div>
+              <div className="dot-loader">
+                <span /><span /><span />
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <p className="text-red-400 text-sm bg-red-950/20 border border-red-900/30 rounded-xl px-4 py-3">
+              {error}
+            </p>
+          )}
+
+          <div ref={bottomRef} />
+        </div>
+      )}
 
       <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          ask();
-        }}
+        onSubmit={(e) => { e.preventDefault(); ask(); }}
         className="flex gap-2"
       >
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask anything about the topic, papers, or graph…"
-          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-md px-4 py-3 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600"
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } }}
+          placeholder="Ask anything about the topic, papers, or gaps…"
+          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500/60 transition-all"
           disabled={busy}
         />
         <button
           type="submit"
           disabled={busy || !input.trim()}
-          className="px-6 py-3 bg-zinc-100 text-zinc-900 rounded-md font-medium disabled:bg-zinc-700 disabled:text-zinc-500 hover:bg-white transition-colors"
+          className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:bg-zinc-800 disabled:text-zinc-600 text-white text-xs font-semibold rounded-xl transition-colors"
         >
           Ask
         </button>

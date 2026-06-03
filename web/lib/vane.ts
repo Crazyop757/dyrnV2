@@ -25,6 +25,14 @@ const PREFERRED_CHAT = [
   "gpt-5",
   "gpt-4-turbo",
 ];
+// Groq chat models that support structured outputs (json_schema). gpt-oss
+// models are preferred — Llama 3.x on Groq only supports plain json mode.
+const PREFERRED_CHAT_GROQ = [
+  "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
+];
 const PREFERRED_EMBED = [
   "text-embedding-3-small",
   "text-embedding-3-large",
@@ -43,29 +51,58 @@ function pickModel(available: { key: string }[], preferred: string[]): string | 
   return available[0]?.key ?? null;
 }
 
+/** Read the deployment-wide LLM provider switch (set via LLM_PROVIDER in .env). */
+async function activeProvider(): Promise<"openai" | "groq"> {
+  try {
+    const r = await fetch("/api/config");
+    if (!r.ok) return "openai";
+    const { llmProvider } = await r.json();
+    return llmProvider === "groq" ? "groq" : "openai";
+  } catch {
+    return "openai";
+  }
+}
+
 /**
  * Discover what providers/models are configured in Vane.
  * Returns null if none are set up yet — caller should show the setup banner.
+ *
+ * The chat model comes from the provider selected by LLM_PROVIDER (the
+ * deployment control switch). Embeddings may come from a different provider:
+ * Groq has no embedding models, so when Groq is active we still use OpenAI's
+ * embeddings (negligible cost) while all chat traffic goes to Groq.
  *
  * Picks a model that's known to work with Vane (skips gpt-3.5-turbo etc. which
  * lack structured-output support and make the search API crash).
  */
 export async function discoverModels(): Promise<ModelChoice | null> {
-  const r = await fetch(`${PROXY}/providers`);
+  const [r, active] = await Promise.all([fetch(`${PROXY}/providers`), activeProvider()]);
   if (!r.ok) return null;
   const data: { providers: VaneProvider[] } = await r.json();
-  for (const p of data.providers) {
-    if (p.chatModels.length === 0 || p.embeddingModels.length === 0) continue;
-    const chatKey = pickModel(p.chatModels, PREFERRED_CHAT);
-    const embedKey = pickModel(p.embeddingModels, PREFERRED_EMBED);
-    if (chatKey && embedKey) {
-      return {
-        chat: { providerId: p.id, key: chatKey },
-        embedding: { providerId: p.id, key: embedKey },
-      };
-    }
-  }
-  return null;
+  const providers = data.providers;
+
+  // Chat: prefer the active provider (matched by name), else any with chat models.
+  const chatProvider =
+    providers.find((p) => p.name.toLowerCase().includes(active) && p.chatModels.length > 0) ??
+    providers.find((p) => p.chatModels.length > 0);
+  if (!chatProvider) return null;
+  const preferredChat = active === "groq" && chatProvider.name.toLowerCase().includes("groq")
+    ? PREFERRED_CHAT_GROQ
+    : PREFERRED_CHAT;
+  const chatKey = pickModel(chatProvider.chatModels, preferredChat);
+
+  // Embeddings: same provider if possible, else any provider that has them.
+  const embedProvider = chatProvider.embeddingModels.length > 0
+    ? chatProvider
+    : providers.find((p) => p.embeddingModels.length > 0);
+  if (!embedProvider) return null;
+  const embedKey = pickModel(embedProvider.embeddingModels, PREFERRED_EMBED);
+
+  if (!chatKey || !embedKey) return null;
+  return {
+    chat: { providerId: chatProvider.id, key: chatKey },
+    embedding: { providerId: embedProvider.id, key: embedKey },
+  };
 }
 
 type SearchArgs = {

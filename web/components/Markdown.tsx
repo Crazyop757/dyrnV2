@@ -39,7 +39,7 @@ export default function Markdown({ children }: Props) {
             href={href}
             target="_blank"
             rel="noreferrer"
-            className="text-sky-400 hover:text-sky-300 underline"
+            className="text-indigo-400 hover:text-indigo-300 underline-offset-2 hover:underline transition-colors"
           >
             {children}
           </a>

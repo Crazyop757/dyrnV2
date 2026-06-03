@@ -48,8 +48,8 @@ reads it at runtime via `/api/config`. Note: embeddings always come from OpenAI
 
 ## Deploying to Hugging Face Spaces (free)
 
-The live deployment runs as a single Docker Space: https://huggingface.co/spaces/techbriny07/research-mvp
-(app: https://techbriny07-research-mvp.hf.space). All three services run in one
+The live deployment runs as a single Docker Space: https://huggingface.co/spaces/techbriny07/DYRN
+(app: https://techbriny07-dyrn.hf.space). All three services run in one
 container — see `deploy/hf/`. Only the web port is public; Vane and the
 research API are reached through same-origin proxies (`/api/vane`, `/api/research`).
 
@@ -64,7 +64,7 @@ rm -rf ~/hf-stage && mkdir ~/hf-stage
 cp deploy/hf/Dockerfile deploy/hf/start.sh deploy/hf/init_providers.sh deploy/hf/README.md deploy/hf/.dockerignore ~/hf-stage/
 rsync -a --exclude node_modules --exclude .next web ~/hf-stage/
 rsync -a --exclude __pycache__ research-api ~/hf-stage/
-HF_TOKEN=<token> hf upload <user>/research-mvp ~/hf-stage . --repo-type=space
+HF_TOKEN=<token> hf upload techbriny07/DYRN ~/hf-stage . --repo-type=space
 ```
 
 Note: free Spaces sleep after ~48h without traffic; the first visit after that

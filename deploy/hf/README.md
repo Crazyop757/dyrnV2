@@ -1,14 +1,14 @@
 ---
-title: Research MVP
-emoji: 🔬
+title: DYRN
+emoji: 🧬
 colorFrom: indigo
-colorTo: blue
+colorTo: purple
 sdk: docker
 app_port: 7860
 pinned: false
 ---
 
-# Research MVP
+# DYRN — Research Intelligence
 
 A single-page research assistant: concept overview, related papers from 4
 academic sources, a relations graph, gap analysis, and follow-up chat.

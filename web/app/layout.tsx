@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "tp — Research",
-  description: "Topic → concept overview, related papers, graph, and follow-up chat.",
+  title: "DYRN — Research Intelligence",
+  description: "Topic → concept overview, related papers, relations graph, gap analysis, and follow-up chat.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

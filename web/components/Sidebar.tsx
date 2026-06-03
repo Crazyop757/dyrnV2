@@ -25,10 +25,27 @@ export default function Sidebar({ activeId, onSelect, onNew }: Props) {
     <aside className="w-56 shrink-0 bg-[#04070f] border-r border-white/[0.05] flex flex-col h-screen">
       {/* Brand */}
       <div className="px-4 py-4 flex items-center gap-2.5">
-        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-[10px] font-bold tracking-tight select-none shadow-lg shadow-indigo-900/40">
-          tp
-        </div>
-        <span className="text-sm font-semibold text-zinc-100 tracking-tight">Research</span>
+        <svg viewBox="0 0 64 64" className="w-7 h-7 rounded-lg shadow-lg shadow-indigo-900/40 select-none" aria-label="DYRN logo">
+          <defs>
+            <linearGradient id="dyrn-g" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#6366f1" />
+              <stop offset="1" stopColor="#8b5cf6" />
+            </linearGradient>
+          </defs>
+          <rect width="64" height="64" rx="14" fill="url(#dyrn-g)" />
+          <g stroke="#fff" strokeWidth="3.5" strokeLinecap="round" fill="none" opacity="0.95">
+            <path d="M23 17 v30" />
+            <path d="M23 17 C45 17 45 47 23 47" />
+            <path d="M23 32 h16.5" opacity="0.55" />
+          </g>
+          <g fill="#fff">
+            <circle cx="23" cy="17" r="5" />
+            <circle cx="23" cy="47" r="5" />
+            <circle cx="39.5" cy="32" r="5" />
+          </g>
+          <circle cx="39.5" cy="32" r="2.2" fill="#7c3aed" />
+        </svg>
+        <span className="text-sm font-bold text-zinc-100 tracking-[0.18em]">DYRN</span>
       </div>
 
       {/* New button */}

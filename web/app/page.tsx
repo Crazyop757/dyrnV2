@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import TopicBox from "@/components/TopicBox";
 import ConceptOverview from "@/components/ConceptOverview";
 import PapersList from "@/components/PapersList";
+import LiteratureReview from "@/components/LiteratureReview";
 import GapAnalysisSection from "@/components/GapAnalysis";
 import RelationsGraph from "@/components/RelationsGraph";
 import ChatBox from "@/components/ChatBox";
@@ -263,6 +264,9 @@ export default function Page() {
 
             <ConceptOverview loading={overviewLoading} error={overviewErr} answer={overview} />
             <PapersList loading={papersLoading} error={papersErr} papers={papers} />
+            {papers.length > 0 && (
+              <LiteratureReview key={session?.id ?? topic} topic={topic} papers={papers} />
+            )}
             <GapAnalysisSection
               analyzing={gapAnalyzing}
               error={gapErr}

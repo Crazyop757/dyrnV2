@@ -107,7 +107,11 @@ export function createSession(topic: string): Session {
 // Reactive view of the sidebar list. Re-reads on local saves (custom event)
 // and cross-tab edits (storage event).
 export function useSessionList(): SessionSummary[] {
-  const [list, setList] = useState<SessionSummary[]>(() => listSessions());
+  // Start empty so the first client render matches the server (which has no
+  // localStorage). Populating here instead would read localStorage during
+  // hydration and diverge from the server HTML — a hydration mismatch. The
+  // effect below fills the list immediately after mount.
+  const [list, setList] = useState<SessionSummary[]>([]);
 
   const refresh = useCallback(() => setList(listSessions()), []);
 

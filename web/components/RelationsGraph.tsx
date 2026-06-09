@@ -96,10 +96,12 @@ function GraphInner({ data, visibleIntents }: { data: GraphResponse; visibleInte
         id: "root",
         layoutOptions: {
           "elk.algorithm": "org.eclipse.elk.force",
-          "elk.force.iterations": "2000",
-          "elk.spacing.nodeNode": "70",
+          "elk.force.iterations": "2600",
+          "elk.spacing.nodeNode": "110",
           "elk.padding": `[top=${PAD},left=${PAD},bottom=${PAD},right=${PAD}]`,
-          "elk.force.repulsivePower": "1",
+          "elk.force.repulsivePower": "2",
+          "elk.separateConnectedComponents": "true",
+          "elk.spacing.componentComponent": "120",
         },
         children: clusterNames.map(cl => ({
           id: `cluster-${cl}`,
@@ -302,9 +304,29 @@ export default function RelationsGraph({ loading, error, data }: Props) {
         )}
       </div>
 
-      <p className="text-[10px] text-zinc-700 mt-2">
-        Hover edges to see connection type · hover nodes for details · click node to open paper
-      </p>
+      {/* How to read this — encodings legend */}
+      {data && data.nodes.length > 0 && (
+        <div className="flex items-center gap-x-4 gap-y-1 flex-wrap mt-2.5 text-[10px] text-zinc-600">
+          <span className="text-zinc-700 font-medium uppercase tracking-wider text-[9px]">How to read this</span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-end gap-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-zinc-600 inline-block" />
+              <span className="w-2.5 h-2.5 rounded-full bg-zinc-500 inline-block" />
+            </span>
+            size = citation count
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full inline-block" style={{ background: CLUSTER_PALETTE[0].border }} />
+            <span className="w-2 h-2 rounded-full inline-block" style={{ background: CLUSTER_PALETTE[1].border }} />
+            color = theme cluster
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-4 h-px inline-block bg-zinc-500" />
+            edge = citation link (color = type)
+          </span>
+          <span className="text-zinc-700">· hover for details · click a node to open the paper</span>
+        </div>
+      )}
 
       {data && data.nodes.length > 0 && <GraphInsights data={data} />}
     </section>

@@ -13,8 +13,9 @@ export default function PaperNode({ data }: { data: any }) {
   const cluster: string = data.cluster ?? "";
   const clusterColor: ClusterColor = data.clusterColor ?? { border: "#10b981", glow: "rgba(16,185,129,0.25)" };
 
-  // Scale node size 64–92px by log(citations)
-  const size = Math.max(64, Math.min(92, 50 + Math.log2(citations + 1) * 8));
+  // Scale node size by log(citations) — wider range gives clearer visual
+  // contrast between landmark papers and the long tail.
+  const size = Math.max(56, Math.min(108, 48 + Math.log2(citations + 1) * 9));
   const shortTitle = title.length > 38 ? title.slice(0, 36) + "…" : title;
 
   const handleClick = () => {

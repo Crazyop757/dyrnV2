@@ -504,8 +504,10 @@ Output ONLY valid JSON — nothing else. Use this exact schema:
 {{
   "gaps": [
     {{
-      "statement": "Clear 1-2 sentence gap statement.",
+      "statement": "Clear 1-2 sentence gap statement naming the missing variable, method, or population.",
       "type": "methodological|knowledge|empirical|population|theoretical|evidence_contradictory|practical",
+      "impact": "One sentence: why closing this gap matters — the concrete consequence of leaving it open.",
+      "recommendation": "One sentence: a concrete next study to address it — name a design, population, method, and outcome measure.",
       "grounding": [
         {{
           "paper_title": "exact title from papers listed above",
@@ -526,7 +528,9 @@ Rules:
 3. verification_queries: 3 SPECIFIC, NARROW sub-queries — name a precise method, population, or condition. Bad: "transformer attention mechanisms in stock price prediction". Good: "transformer cross-attention intraday volatility prediction without technical indicators".
 4. Do NOT invent gaps unsupported by the evidence above.
 5. Output 4-8 gaps. type must be exactly one of the 7 listed values.
-6. CRITICAL — gaps must be narrow: a good gap has fewer than 10 papers addressing it. State a specific combination of method + population + outcome, not a broad sub-field. If you can only find broad gaps, say so by outputting fewer gaps."""
+6. CRITICAL — gaps must be narrow: a good gap has fewer than 10 papers addressing it. State a specific combination of method + population + outcome, not a broad sub-field. If you can only find broad gaps, say so by outputting fewer gaps.
+7. BANNED phrasing — never write vague filler like "more research is needed", "further studies should explore", or "this area is understudied". Every statement, impact, and recommendation must name the specific missing variable / method / population / outcome.
+8. impact and recommendation are REQUIRED on every gap. The recommendation must be a concrete, runnable study, not a topic."""
 
     try:
         resp = await client.chat.completions.create(
@@ -797,10 +801,19 @@ async def gap_analysis_endpoint(body: GapAnalysisRequest) -> dict[str, Any]:
     egm_gaps: list[dict[str, Any]] = []
     for i, cell in enumerate((egm.get("empty_cells") or [])[:5]):
         confidence = "confirmed" if cell["count"] == 0 else "partial"
+        d1, d2 = cell["dim1_value"], cell["dim2_value"]
+        if cell["count"] == 0:
+            impact = f"The {egm.get('dim1_label', 'first')} × {egm.get('dim2_label', 'second')} combination of {d1} and {d2} is untested, so its effectiveness is currently unknown."
+            recommendation = f"Run an empirical study applying {d1} to {d2} and report standard outcome metrics to fill this matrix cell."
+        else:
+            impact = f"A single study on {d1} × {d2} means the finding is unreplicated and its generality is unconfirmed."
+            recommendation = f"Replicate the existing {d1} × {d2} work on a new dataset or population to test robustness."
         egm_gaps.append({
             "id": f"egm-{i + 1}",
             "statement": cell["gap_statement"],
             "type": "empirical",
+            "impact": impact,
+            "recommendation": recommendation,
             "grounding": [],
             "graph_signal": None,
             "egm_cell": {"dim1": cell["dim1_value"], "dim2": cell["dim2_value"], "count": cell["count"]},
@@ -844,6 +857,369 @@ async def gap_analysis_endpoint(body: GapAnalysisRequest) -> dict[str, Any]:
     # 7. Gap map and return
     gap_map = _build_gap_map(all_gaps, signals)
     return {"gaps": all_gaps, "gap_map": gap_map, "egm": egm}
+
+
+# ---------------------------------------------------------------------------
+# Per-paper summarization
+# ---------------------------------------------------------------------------
+
+class SummarizeRequest(BaseModel):
+    paper: dict[str, Any]
+
+
+_SUMMARY_KEYS = ("tldr", "objective", "methods", "key_findings", "limitations", "contribution")
+
+
+@app.post("/summarize-paper")
+async def summarize_paper(body: SummarizeRequest) -> dict[str, Any]:
+    """Produce a structured, grounded summary of a single paper.
+
+    We usually only have the abstract (full text is rarely open-access), so the
+    prompt hard-constrains the model to the provided text and forces the literal
+    placeholder "Not stated in abstract" for any field it cannot ground — this is
+    the single biggest guard against the model filling methods/results from memory.
+    """
+    client, llm_model = get_llm()
+    if client is None:
+        raise HTTPException(status_code=503, detail="No LLM provider configured.")
+
+    p = body.paper
+    title = (p.get("title") or "").strip()
+    abstract = (p.get("abstract") or p.get("tldr") or "").strip()
+    authors = ", ".join((p.get("authors") or [])[:6]) or "unknown"
+    year = p.get("year") or "n/a"
+    venue = p.get("venue") or "n/a"
+
+    if not abstract:
+        # Nothing to ground a summary in — be honest rather than hallucinate.
+        return {
+            "summary": {
+                "tldr": "No abstract is available for this paper, so it cannot be summarized.",
+                "objective": "Not stated in abstract",
+                "methods": "Not stated in abstract",
+                "key_findings": "Not stated in abstract",
+                "limitations": "Not stated in abstract",
+                "contribution": "Not stated in abstract",
+            },
+            "grounded_on": "none",
+        }
+
+    prompt = f"""You are summarizing a single academic paper for a researcher. You are given ONLY its title, abstract, and metadata.
+
+CONSTRAINTS:
+- Use ONLY the provided text. Do NOT invent methods, numbers, datasets, or results not explicitly stated.
+- If a field cannot be determined from the abstract, output exactly: "Not stated in abstract".
+- Be specific: prefer the paper's own quantities and terms over generic phrasing.
+- Objective academic tone. No hype, no first person, no commentary outside the fields.
+
+PAPER:
+Title: {title}
+Authors: {authors} ({year}), {venue}
+Abstract: {abstract}
+
+Output ONLY valid JSON with this exact schema:
+{{
+  "tldr": "one sentence, <=30 words: the objective plus the headline result",
+  "objective": "the research question or goal",
+  "methods": "design, data, sample size, model/approach — or 'Not stated in abstract'",
+  "key_findings": "the actual results, quantified where stated",
+  "limitations": "stated limitations — usually 'Not stated in abstract' for abstract-only input",
+  "contribution": "why it matters / what it adds to the field"
+}}"""
+
+    try:
+        resp = await client.chat.completions.create(
+            model=llm_model,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            max_tokens=700,
+            temperature=0.2,
+        )
+        data = json.loads(resp.choices[0].message.content or "{}")
+    except Exception as e:
+        log.warning("Paper summarization failed: %s", e)
+        raise HTTPException(status_code=502, detail="Summarization failed.")
+
+    summary = {k: (str(data.get(k) or "").strip() or "Not stated in abstract") for k in _SUMMARY_KEYS}
+    return {"summary": summary, "grounded_on": "abstract"}
+
+
+# ---------------------------------------------------------------------------
+# Literature review generation
+# ---------------------------------------------------------------------------
+
+_AUTHOR_SURNAME_RE = re.compile(r"[^A-Za-zÀ-ɏ'\- ]+")
+
+
+def _surname(name: str) -> str:
+    """Best-effort surname extraction from a free-form author name.
+
+    Returns "" for names we can't parse (e.g. non-Latin scripts the citekey
+    regex strips entirely); callers fall back to the full name or "Anon".
+    """
+    # Handle "Last, First" — surname is the comma-prefix.
+    if "," in (name or ""):
+        head = (name.split(",")[0]).strip().split()
+        if head:
+            return head[-1]
+    parts = _AUTHOR_SURNAME_RE.sub("", (name or "").strip()).split()
+    return parts[-1] if parts else ""
+
+
+def _citekey(p: dict[str, Any]) -> str:
+    authors = p.get("authors") or []
+    surname = _surname(authors[0]) if authors else "Anon"
+    year = p.get("year") or "n.d."
+    return f"{surname or 'Anon'}{year}"
+
+
+def _citation_label(p: dict[str, Any]) -> str:
+    """A human-facing in-text label like 'Smith et al., 2020'."""
+    authors = p.get("authors") or []
+    year = p.get("year") or "n.d."
+    if not authors:
+        return f"Anon., {year}"
+    first = _surname(authors[0]) or authors[0]
+    if len(authors) == 1:
+        return f"{first}, {year}"
+    if len(authors) == 2:
+        return f"{first} & {_surname(authors[1]) or authors[1]}, {year}"
+    return f"{first} et al., {year}"
+
+
+def _reference_line(p: dict[str, Any]) -> str:
+    authors = p.get("authors") or []
+    if len(authors) > 6:
+        author_str = ", ".join(authors[:6]) + ", et al."
+    else:
+        author_str = ", ".join(authors) or "Anon."
+    year = p.get("year") or "n.d."
+    title = (p.get("title") or "Untitled").strip().rstrip(".")
+    venue = p.get("venue")
+    link = p.get("doi") and f"https://doi.org/{p['doi']}" or p.get("url") or p.get("pdf_url")
+    ref = f"{author_str} ({year}). {title}."
+    if venue:
+        ref += f" *{venue}*."
+    if link:
+        ref += f" [{link}]({link})"
+    return ref
+
+
+def _humanize_citekeys(text: str, entry_map: dict[str, dict[str, Any]]) -> str:
+    """Replace any raw citekeys the model leaked (e.g. 'Wang2020' or '[Vaswani2017]')
+    with the human in-text label ('Wang & Li, 2020'). The model is asked to use the
+    labels directly but occasionally falls back to the bracket key — this keeps the
+    rendered review consistent. Longest keys first so 'Wang2020a' isn't half-matched."""
+    if not text:
+        return text
+    for key in sorted(entry_map, key=len, reverse=True):
+        label = entry_map[key]["citation_label"]
+        # Bracketed form -> parenthesised label; bare token -> label.
+        text = re.sub(rf"\[\s*{re.escape(key)}\s*\]", f"({label})", text)
+        text = re.sub(rf"(?<![\w]){re.escape(key)}(?![\w])", label, text)
+    return text
+
+
+async def _extract_themes(
+    topic: str,
+    entries: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Stage A: cluster papers into 3-6 organizing themes (theme-first synthesis)."""
+    client, llm_model = get_llm()
+    if client is None:
+        return {"themes": [], "debates": [], "gaps": []}
+
+    blocks = "\n\n".join(
+        f"[{e['citekey']}] {e['title']} ({e.get('year', 'n/a')})\n{(e.get('abstract') or '')[:300]}"
+        for e in entries
+    )
+    valid_keys = [e["citekey"] for e in entries]
+
+    prompt = f"""Research topic: '{topic}'
+
+You are organizing a literature review. Below are {len(entries)} papers, each tagged with a citekey in [brackets].
+
+{blocks}
+
+Identify 3-6 THEMES that organize this literature (by research question, method family, or debate — NOT one theme per paper). For each theme, list which papers belong to it (a paper may appear in several themes). Also surface explicit debates (papers that disagree) and apparent gaps.
+
+Output ONLY valid JSON:
+{{
+  "themes": [
+    {{"theme": "short theme title", "description": "1 sentence on what this theme covers", "citekeys": ["{valid_keys[0] if valid_keys else 'Key2020'}", "..."]}}
+  ],
+  "debates": ["1 sentence naming a specific disagreement and the papers involved"],
+  "gaps": ["1 sentence naming a specific under-explored area"]
+}}
+
+Rules:
+- Use ONLY citekeys from the list above; never invent one.
+- 3-6 themes. Every theme needs >=1 citekey. Order themes from foundational to emerging."""
+
+    try:
+        resp = await client.chat.completions.create(
+            model=llm_model,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            max_tokens=1200,
+            temperature=0.2,
+        )
+        data = json.loads(resp.choices[0].message.content or "{}")
+    except Exception as e:
+        log.warning("Theme extraction failed: %s", e)
+        return {"themes": [], "debates": [], "gaps": []}
+
+    valid = set(valid_keys)
+    themes = []
+    for t in data.get("themes") or []:
+        keys = [k for k in (t.get("citekeys") or []) if k in valid]
+        if keys and t.get("theme"):
+            themes.append({"theme": t["theme"], "description": t.get("description", ""), "citekeys": keys})
+    return {
+        "themes": themes,
+        "debates": [d for d in (data.get("debates") or []) if d][:4],
+        "gaps": [g for g in (data.get("gaps") or []) if g][:4],
+    }
+
+
+async def _synthesize_theme(
+    topic: str,
+    theme: dict[str, Any],
+    entry_map: dict[str, dict[str, Any]],
+) -> str:
+    """Stage B: write ONE synthesized paragraph for a single theme."""
+    client, llm_model = get_llm()
+    if client is None:
+        return ""
+
+    papers_text = "\n\n".join(
+        f"[{k}] {entry_map[k]['title']} ({entry_map[k].get('year', 'n/a')})\n{(entry_map[k].get('abstract') or '')[:350]}"
+        for k in theme["citekeys"] if k in entry_map
+    )
+    label_map = {k: entry_map[k]["citation_label"] for k in theme["citekeys"] if k in entry_map}
+
+    prompt = f"""Write ONE synthesis paragraph for the literature-review theme "{theme['theme']}" (topic: '{topic}').
+
+Papers for this theme (cite using the label shown after each citekey):
+{papers_text}
+
+In-text citation labels to use:
+{json.dumps(label_map)}
+
+RULES:
+- Open with a theme-level topic sentence, NOT an author name.
+- SYNTHESIZE — do not summarize papers one at a time. Group and contrast them; use relationship language (agree, extend, build on, contradict).
+- Every claim is followed by an in-text citation using the labels above, e.g. (Smith, 2020) or grouped (Smith, 2020; Lee, 2021).
+- Note any disagreement or what remains unresolved within this theme.
+- 120-180 words. Academic prose. No headings, no bullet points, no preamble — output only the paragraph."""
+
+    try:
+        resp = await client.chat.completions.create(
+            model=llm_model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=400,
+            temperature=0.3,
+        )
+        return (resp.choices[0].message.content or "").strip()
+    except Exception as e:
+        log.warning("Theme synthesis failed for %r: %s", theme.get("theme"), e)
+        return ""
+
+
+class LiteratureReviewRequest(BaseModel):
+    topic: str
+    papers: list[dict[str, Any]]
+
+
+@app.post("/literature-review")
+async def literature_review(body: LiteratureReviewRequest) -> dict[str, Any]:
+    """Generate a synthesized, theme-organized literature review draft with citations.
+
+    Two-stage pipeline (the key to synthesis rather than paper-by-paper summary):
+      A. Extract 3-6 organizing themes across all papers.
+      B. Write one synthesized paragraph PER theme in parallel, each citing only
+         its own papers via Python-computed citekeys (so citations can't be
+         hallucinated). References are assembled deterministically.
+    """
+    client, _ = get_llm()
+    if client is None:
+        raise HTTPException(status_code=503, detail="No LLM provider configured.")
+
+    papers = [p for p in body.papers if (p.get("abstract") or p.get("tldr") or p.get("title"))][:24]
+    if len(papers) < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 papers to write a literature review.")
+
+    # Build entries with unique citekeys (disambiguate collisions with a/b/c suffix).
+    entries: list[dict[str, Any]] = []
+    used: dict[str, int] = {}
+    for p in papers:
+        base = _citekey(p)
+        n = used.get(base, 0)
+        used[base] = n + 1
+        key = base if n == 0 else f"{base}{chr(ord('a') + n)}"
+        entries.append({
+            "citekey": key,
+            "title": p.get("title") or "Untitled",
+            "abstract": p.get("abstract") or p.get("tldr") or "",
+            "year": p.get("year"),
+            "citation_label": _citation_label(p),
+            "paper": p,
+        })
+    entry_map = {e["citekey"]: e for e in entries}
+
+    plan = await _extract_themes(body.topic, entries)
+    themes = plan["themes"]
+    if not themes:
+        raise HTTPException(status_code=502, detail="Could not derive themes for a literature review.")
+
+    paragraphs = await asyncio.gather(
+        *[_synthesize_theme(body.topic, t, entry_map) for t in themes]
+    )
+
+    # Assemble markdown: intro -> per-theme sections -> debates -> gaps -> references.
+    cited_keys: set[str] = set()
+    parts: list[str] = [f"# Literature Review: {body.topic}\n"]
+    n_papers = len(entries)
+    n_themes = len(themes)
+    parts.append(
+        f"This review synthesizes {n_papers} works across {n_themes} themes, "
+        "organized thematically rather than paper-by-paper.\n"
+    )
+
+    for t, para in zip(themes, paragraphs):
+        parts.append(f"## {t['theme']}\n")
+        if para:
+            parts.append(_humanize_citekeys(para, entry_map) + "\n")
+        else:
+            parts.append(t.get("description", "") + "\n")
+        cited_keys.update(t["citekeys"])
+
+    if plan["debates"]:
+        parts.append("## Tensions & debates\n")
+        parts.append("\n".join(f"- {_humanize_citekeys(d, entry_map)}" for d in plan["debates"]) + "\n")
+
+    if plan["gaps"]:
+        parts.append("## Gaps & future directions\n")
+        parts.append("\n".join(f"- {_humanize_citekeys(g, entry_map)}" for g in plan["gaps"]) + "\n")
+
+    parts.append("## References\n")
+    ref_lines = []
+    for e in entries:
+        if e["citekey"] in cited_keys:
+            ref_lines.append(f"- {_reference_line(e['paper'])}")
+    # Fall back to listing all papers if the model cited nothing parseable.
+    if not ref_lines:
+        ref_lines = [f"- {_reference_line(e['paper'])}" for e in entries]
+    parts.append("\n".join(ref_lines) + "\n")
+
+    markdown = "\n".join(parts)
+    return {
+        "markdown": markdown,
+        "themes": [{"theme": t["theme"], "description": t["description"], "paper_count": len(t["citekeys"])} for t in themes],
+        "debates": plan["debates"],
+        "gaps": plan["gaps"],
+        "paper_count": n_papers,
+    }
 
 
 @app.get("/verify-gap")

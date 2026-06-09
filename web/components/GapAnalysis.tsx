@@ -176,6 +176,27 @@ function GapCard({ gap }: { gap: Gap }) {
 
       <p className="text-sm text-zinc-200 leading-relaxed">{gap.statement}</p>
 
+      {(gap.impact || gap.recommendation) && (
+        <div className="space-y-2">
+          {gap.impact && (
+            <div className="flex items-start gap-2.5">
+              <span className="shrink-0 mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded px-1.5 py-0.5 w-[88px] text-center">
+                Why it matters
+              </span>
+              <p className="text-xs text-zinc-400 leading-relaxed">{gap.impact}</p>
+            </div>
+          )}
+          {gap.recommendation && (
+            <div className="flex items-start gap-2.5">
+              <span className="shrink-0 mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-400/80 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5 w-[88px] text-center">
+                How to address
+              </span>
+              <p className="text-xs text-zinc-400 leading-relaxed">{gap.recommendation}</p>
+            </div>
+          )}
+        </div>
+      )}
+
       <GroundingBlock gap={gap} />
 
       <VerificationBadge gap={gap} />

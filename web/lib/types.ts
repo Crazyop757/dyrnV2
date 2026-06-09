@@ -17,6 +17,34 @@ export type Paper = {
 
 export type PapersResponse = { topic: string; papers: Paper[] };
 
+export type PaperSummary = {
+  tldr: string;
+  objective: string;
+  methods: string;
+  key_findings: string;
+  limitations: string;
+  contribution: string;
+};
+
+export type SummarizeResponse = {
+  summary: PaperSummary;
+  grounded_on: "abstract" | "none";
+};
+
+export type LiteratureReviewTheme = {
+  theme: string;
+  description: string;
+  paper_count: number;
+};
+
+export type LiteratureReviewResponse = {
+  markdown: string;
+  themes: LiteratureReviewTheme[];
+  debates: string[];
+  gaps: string[];
+  paper_count: number;
+};
+
 export type GraphNode = {
   id: string;
   label: string;
@@ -98,6 +126,8 @@ export type Gap = {
   id: string;
   statement: string;
   type: GapType;
+  impact?: string | null;
+  recommendation?: string | null;
   grounding: GapGrounding[];
   graph_signal: GapGraphSignal | null;
   verification: GapVerification;

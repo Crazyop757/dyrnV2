@@ -1,0 +1,50 @@
+web/components/PapersList.tsx
+  s_37db287bac57f9::t_3b97cefec6b75a 1-5,50-183,204-206
+web/app/page.tsx
+  s_37db287bac57f9::t_dfdcb1fe2dc287 267-269
+  s_37db287bac57f9::t_342bd54775c491 7
+web/components/RelationsGraph.tsx
+  s_37db287bac57f9::t_473e8b3cabb124 99-100,102-104
+  s_37db287bac57f9::t_fab27acd5a2238 307-329
+web/lib/researchApi.ts
+  s_37db287bac57f9::t_70ad43166641db 1
+  s_37db287bac57f9::t_9bce57b6998cd1 33-55
+web/components/graph/PaperNode.tsx
+  s_37db287bac57f9::t_ef08be44e70126 16-18
+web/components/GapAnalysis.tsx
+  s_37db287bac57f9::t_f15fbec762b34a 179-199
+web/lib/types.ts
+  s_37db287bac57f9::t_9d9802de515f8f 20-47
+  s_37db287bac57f9::t_7dfb373bc7c00e 129-130
+web/components/LiteratureReview.tsx
+  s_37db287bac57f9::t_32e98e34f392e9 1-168
+web/lib/sessions.ts
+  s_37db287bac57f9::t_52beb32822d3a6 110-114
+research-api/main.py
+  s_37db287bac57f9::t_02f379840e6100 804-810,815-816
+  s_37db287bac57f9::t_2fe15e66b82ca3 862-954,961,967-1007,1023-1191,1193-1198,1200-1202,1204-1224
+  s_37db287bac57f9::t_cb6bc1df6f7eef 955-960,962-966
+  s_37db287bac57f9::t_f65954ecf1ca9b 1192,1199,1203
+  s_37db287bac57f9::t_b2a27327a2aff3 507,509-510,531-533
+  s_37db287bac57f9::t_e9ae5a49301818 1008-1022
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "14d145d8e2131ee2543c5de27c4452d6f8ad1742",
+  "prompts": {},
+  "sessions": {
+    "s_37db287bac57f9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "be6351a0-4158-47e6-bddc-2df16326ce49",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Crazyop757 <83007860+Crazyop757@users.noreply.github.com>",
+      "total_additions": 815,
+      "total_deletions": 78,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -13,10 +13,10 @@ type Props = {
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3 mb-4">
-      <span className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+      <span className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
         {children}
       </span>
-      <div className="flex-1 h-px bg-zinc-900" />
+      <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800" />
     </div>
   );
 }
@@ -25,7 +25,7 @@ function Skeleton() {
   return (
     <div className="space-y-2.5">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="rounded-xl border border-zinc-800/50 bg-zinc-900/20 p-4 space-y-2">
+        <div key={i} className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-[#0c0c0e] p-5 space-y-2 shadow-xl shadow-black/5 dark:shadow-black/40">
           <div className="skeleton h-3.5 w-2/3" />
           <div className="flex gap-1.5">
             <div className="skeleton h-3 w-10 rounded-full" />
@@ -57,12 +57,12 @@ const SUMMARY_FIELDS: { key: keyof PaperSummary; label: string }[] = [
 
 function SummaryCard({ summary, groundedOnAbstract }: { summary: PaperSummary; groundedOnAbstract: boolean }) {
   return (
-    <div className="mt-3 rounded-lg border border-indigo-900/40 bg-indigo-950/10 p-3.5 space-y-2.5">
+    <div className="mt-3 rounded-lg border border-blue-200 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-950/10 p-3.5 space-y-2.5">
       <div className="flex items-start gap-2">
-        <span className="shrink-0 mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 rounded px-1.5 py-0.5">
+        <span className="shrink-0 mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded px-1.5 py-0.5">
           TL;DR
         </span>
-        <p className="text-xs text-zinc-200 leading-relaxed">{summary.tldr}</p>
+        <p className="text-xs text-zinc-700 dark:text-zinc-200 leading-relaxed">{summary.tldr}</p>
       </div>
       <div className="grid sm:grid-cols-2 gap-x-4 gap-y-2 pt-1">
         {SUMMARY_FIELDS.map(({ key, label }) => {
@@ -70,8 +70,8 @@ function SummaryCard({ summary, groundedOnAbstract }: { summary: PaperSummary; g
           const notStated = /not stated/i.test(val || "");
           return (
             <div key={key}>
-              <div className="text-[9px] uppercase tracking-widest text-zinc-600 mb-0.5">{label}</div>
-              <p className={`text-[11px] leading-relaxed ${notStated ? "text-zinc-700 italic" : "text-zinc-400"}`}>
+              <div className="text-[9px] uppercase tracking-widest text-zinc-500 dark:text-zinc-600 mb-0.5">{label}</div>
+              <p className={`text-[11px] leading-relaxed ${notStated ? "text-zinc-500 dark:text-zinc-700 italic" : "text-zinc-600 dark:text-zinc-400"}`}>
                 {val}
               </p>
             </div>
@@ -79,7 +79,7 @@ function SummaryCard({ summary, groundedOnAbstract }: { summary: PaperSummary; g
         })}
       </div>
       {groundedOnAbstract && (
-        <p className="text-[9px] text-zinc-700 pt-1 border-t border-zinc-800/50">
+        <p className="text-[9px] text-zinc-500 dark:text-zinc-700 pt-1 border-t border-zinc-200 dark:border-zinc-800/50">
           Generated from the abstract only — methods and limitations may be incomplete.
         </p>
       )}
@@ -115,10 +115,10 @@ function PaperCard({ paper }: { paper: Paper }) {
   };
 
   return (
-    <li className="rounded-xl border border-zinc-800/50 bg-zinc-900/20 p-4 hover:border-zinc-700/60 hover:bg-zinc-900/40 transition-all">
-      <div className="font-medium text-sm leading-snug text-zinc-100 mb-2">
+    <li className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-[#0c0c0e] p-5 hover:border-zinc-300 dark:hover:border-zinc-700/60 transition-all shadow-xl shadow-black/5 dark:shadow-black/40">
+      <div className="font-medium text-sm leading-snug text-zinc-900 dark:text-zinc-100 mb-2">
         {link ? (
-          <a href={link} target="_blank" rel="noreferrer" className="hover:text-indigo-300 transition-colors">
+          <a href={link} target="_blank" rel="noreferrer" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
             {paper.title}
           </a>
         ) : (
@@ -128,34 +128,34 @@ function PaperCard({ paper }: { paper: Paper }) {
 
       <div className="flex flex-wrap gap-1.5 mb-1.5">
         {paper.year && (
-          <span className="text-[10px] bg-zinc-800/80 text-zinc-400 px-2 py-0.5 rounded-full">{paper.year}</span>
+          <span className="text-[10px] bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 px-2 py-0.5 rounded-full">{paper.year}</span>
         )}
         {paper.venue && (
-          <span className="text-[10px] bg-zinc-800/80 text-zinc-400 px-2 py-0.5 rounded-full max-w-[180px] truncate">
+          <span className="text-[10px] bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 px-2 py-0.5 rounded-full max-w-[180px] truncate">
             {paper.venue}
           </span>
         )}
         {paper.citation_count > 0 && (
-          <span className="text-[10px] bg-zinc-800/80 text-zinc-400 px-2 py-0.5 rounded-full">
+          <span className="text-[10px] bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 px-2 py-0.5 rounded-full">
             {paper.citation_count.toLocaleString()} citations
           </span>
         )}
       </div>
 
-      <div className="text-xs text-zinc-600 mb-2">
+      <div className="text-xs text-zinc-500 dark:text-zinc-600 mb-2">
         {paper.authors.slice(0, 4).join(", ")}
         {paper.authors.length > 4 && " et al."}
       </div>
 
       {paper.abstract && (
-        <p className="text-xs text-zinc-500 leading-relaxed line-clamp-3">{paper.abstract}</p>
+        <p className="text-xs text-zinc-600 dark:text-zinc-500 leading-relaxed line-clamp-3">{paper.abstract}</p>
       )}
 
       <div className="flex items-center gap-2 mt-3">
         <button
           onClick={handleSummarize}
           disabled={loading}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] border border-indigo-500/30 text-indigo-300 bg-indigo-500/5 hover:bg-indigo-500/15 hover:border-indigo-500/50 transition-all disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] border border-blue-200 dark:border-blue-500/30 text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/5 hover:bg-blue-100 dark:hover:bg-blue-500/15 hover:border-blue-300 dark:hover:border-blue-500/50 transition-all disabled:opacity-50"
         >
           {loading ? (
             <>
@@ -175,7 +175,7 @@ function PaperCard({ paper }: { paper: Paper }) {
         </button>
       </div>
 
-      {err && <p className="mt-2 text-[11px] text-red-400">{err}</p>}
+      {err && <p className="mt-2 text-[11px] text-red-600 dark:text-red-400">{err}</p>}
       {open && summary && <SummaryCard summary={summary} groundedOnAbstract={grounded} />}
     </li>
   );
@@ -191,13 +191,13 @@ export default function PapersList({ loading, error, papers }: Props) {
       {loading && <Skeleton />}
 
       {error && (
-        <p className="text-red-400 text-sm bg-red-950/20 border border-red-900/30 rounded-xl px-4 py-3">
+        <p className="text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl px-4 py-3 shadow-sm">
           {error}
         </p>
       )}
 
       {!loading && papers.length === 0 && !error && (
-        <p className="text-zinc-600 text-sm">No papers found.</p>
+        <p className="text-zinc-500 dark:text-zinc-600 text-sm">No papers found.</p>
       )}
 
       <ul className="space-y-2.5">

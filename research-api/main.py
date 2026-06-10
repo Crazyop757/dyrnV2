@@ -105,7 +105,7 @@ def _merge_papers(
       1. Front-load with the top S2 results, capped at ~40% of `limit`, so the
          graph endpoint always has enough seed IDs to expand.
       2. Fill remaining slots by round-robin across all four sources so each
-         contributes something — this surfaces complementary coverage that pure
+         contributes something â€” this surfaces complementary coverage that pure
          relevance-ranking would hide (e.g. CrossRef journal articles missing
          from S2; PubMed biomedical-only papers).
     """
@@ -213,7 +213,7 @@ async def graph(
 ) -> dict[str, Any]:
     """Return nodes/edges for the relations graph.
 
-    Only Semantic Scholar IDs (no prefix) can seed the graph — OpenAlex (OA:),
+    Only Semantic Scholar IDs (no prefix) can seed the graph â€” OpenAlex (OA:),
     CrossRef (DOI:), and PubMed (PMID:) IDs are filtered out because graph
     building uses S2's references/citations endpoints.
     """
@@ -222,7 +222,7 @@ async def graph(
     if not seed_ids:
         raise HTTPException(
             status_code=400,
-            detail="No Semantic Scholar IDs in the request — cannot build a graph.",
+            detail="No Semantic Scholar IDs in the request â€” cannot build a graph.",
         )
 
     # Cap to keep the response under 30s in the worst case.
@@ -239,7 +239,7 @@ async def extract(body: ExtractRequest) -> dict[str, Any]:
     """Extract limitations/future-work/conclusions from papers with open-access PDFs.
 
     Sends each PDF to the GROBID service and parses TEI XML. Papers without
-    pdf_url are skipped — the caller should fall back to abstract-only analysis.
+    pdf_url are skipped â€” the caller should fall back to abstract-only analysis.
     """
     sections = await extract_sections(body.papers)
     return {"sections": sections}
@@ -257,7 +257,7 @@ def _extract_citing_limitations(
     """Extract limitation-expressing citation contexts from papers that cite seed_id.
 
     These are externally-validated gaps: another paper acknowledged seed_id's
-    limitation after publication — much stronger signal than self-reporting.
+    limitation after publication â€” much stronger signal than self-reporting.
     """
     results: list[dict[str, Any]] = []
     for citer in citers:
@@ -288,7 +288,7 @@ async def _build_egm(
 
     id_to_title = {p.get("id", ""): p.get("title", "") for p in papers}
 
-    # Step 1 — infer dimensions
+    # Step 1 â€” infer dimensions
     titles_text = "\n".join(f"- {p.get('title', '')}" for p in papers[:10])
     dim_prompt = f"""Research topic: '{topic}'
 
@@ -305,7 +305,7 @@ Output ONLY valid JSON:
 
 Rules:
 - Choose the 2 most discriminating orthogonal dimensions for classifying papers in this field
-- Values must be CANONICAL TECHNIQUE / CATEGORY NAMES from the research community — NOT words from paper titles, NOT study types like "Comparative Evaluation" or "Survey"
+- Values must be CANONICAL TECHNIQUE / CATEGORY NAMES from the research community â€” NOT words from paper titles, NOT study types like "Comparative Evaluation" or "Survey"
 - Good dim1 example for FL: ["FedAvg", "FedProx", "FedBN", "pFedMe", "SCAFFOLD", "Other"]
 - Good dim2 example for medical imaging: ["CT", "MRI", "X-ray", "Ultrasound", "Pathology", "Other"]
 - 4-6 mutually exclusive values per dimension, always ending with "Other"
@@ -332,15 +332,15 @@ Rules:
     if not dim1_values or not dim2_values:
         return {"dim1_label": "", "dim2_label": "", "dim1_values": [], "dim2_values": [], "matrix": [], "empty_cells": []}
 
-    # Step 2 — classify papers
+    # Step 2 â€” classify papers
     paper_blocks = "\n\n".join(
         f"ID: {p.get('id', '')}\nTitle: {p.get('title', '')}\nAbstract: {(p.get('abstract') or p.get('tldr') or '')[:180]}"
         for p in papers[:20]
     )
     cls_prompt = f"""Classify each paper.
 
-Dimension 1 — {dim1_label}: {dim1_values}
-Dimension 2 — {dim2_label}: {dim2_values}
+Dimension 1 â€” {dim1_label}: {dim1_values}
+Dimension 2 â€” {dim2_label}: {dim2_values}
 
 {paper_blocks}
 
@@ -363,7 +363,7 @@ Use ONLY values from the lists. Use "Other" if nothing fits."""
         log.warning("EGM classification failed: %s", e)
         return {"dim1_label": dim1_label, "dim2_label": dim2_label, "dim1_values": dim1_values, "dim2_values": dim2_values, "matrix": [], "empty_cells": []}
 
-    # Step 3 — build matrix
+    # Step 3 â€” build matrix
     matrix_counts: dict[str, dict[str, list[str]]] = {}
     for cls in classifications:
         d1 = cls.get("dim1", "Other")
@@ -371,7 +371,7 @@ Use ONLY values from the lists. Use "Other" if nothing fits."""
         pid = cls.get("id", "")
         matrix_counts.setdefault(d1, {}).setdefault(d2, []).append(pid)
 
-    # Build rows (exclude Other×Other noise)
+    # Build rows (exclude OtherÃ—Other noise)
     matrix_rows: list[dict[str, Any]] = []
     empty_cells: list[dict[str, Any]] = []
     for d1 in dim1_values:
@@ -427,7 +427,7 @@ async def _induce_gaps(
     if client is None:
         return []
 
-    # Build citing-paper evidence block (primary evidence — external validation)
+    # Build citing-paper evidence block (primary evidence â€” external validation)
     citing_blocks: list[str] = []
     for cl in (citing_limits or [])[:15]:
         citing_blocks.append(
@@ -448,7 +448,7 @@ async def _induce_gaps(
         if p.get("tldr"):
             lines.append(f"TLDR: {p['tldr']}")
         elif p.get("abstract"):
-            lines.append(f"Abstract: {(p.get('abstract') or '')[:250]}…")
+            lines.append(f"Abstract: {(p.get('abstract') or '')[:250]}â€¦")
 
         paper_secs = sections.get(pid, {})
         lim_quotes = paper_secs.get("limitations") or []
@@ -469,7 +469,7 @@ async def _induce_gaps(
         signal_lines.append(
             f"CLUSTER GAP: '{ws['cluster_a']}' and '{ws['cluster_b']}' are semantically "
             f"similar (cosine {ws['similarity']}) but have only {ws['citation_count']} "
-            f"cross-citations — a likely unexplored interdisciplinary connection."
+            f"cross-citations â€” a likely unexplored interdisciplinary connection."
         )
     for c in signals.get("contradictions", []):
         signal_lines.append(
@@ -487,12 +487,12 @@ async def _induce_gaps(
 
     system_prompt = f"""You are a research-gap analyst. Analyse evidence about '{topic}' and identify genuine, specific research gaps.
 
-## PRIMARY EVIDENCE — Citing-paper external limitations (strongest signal)
+## PRIMARY EVIDENCE â€” Citing-paper external limitations (strongest signal)
 These are quotes from papers that CITE our seed papers and explicitly say something is still missing.
 This is external validation: another author confirmed the limitation was still open after the seed paper was published.
 {citing_text}
 
-## SECONDARY EVIDENCE — Self-reported limitations / future-work
+## SECONDARY EVIDENCE â€” Self-reported limitations / future-work
 {papers_text}
 
 ## Graph signals (structural gaps from citation network)
@@ -500,14 +500,14 @@ This is external validation: another author confirmed the limitation was still o
 
 ## Output format
 
-Output ONLY valid JSON — nothing else. Use this exact schema:
+Output ONLY valid JSON â€” nothing else. Use this exact schema:
 {{
   "gaps": [
     {{
       "statement": "Clear 1-2 sentence gap statement naming the missing variable, method, or population.",
       "type": "methodological|knowledge|empirical|population|theoretical|evidence_contradictory|practical",
-      "impact": "One sentence: why closing this gap matters — the concrete consequence of leaving it open.",
-      "recommendation": "One sentence: a concrete next study to address it — name a design, population, method, and outcome measure.",
+      "impact": "One sentence: why closing this gap matters â€” the concrete consequence of leaving it open.",
+      "recommendation": "One sentence: a concrete next study to address it â€” name a design, population, method, and outcome measure.",
       "grounding": [
         {{
           "paper_title": "exact title from papers listed above",
@@ -525,11 +525,11 @@ Output ONLY valid JSON — nothing else. Use this exact schema:
 Rules:
 1. Every gap MUST have grounding: prefer citing-paper evidence (use section='citing_paper') over self-reported. If from citing evidence, paper_title = the CITING paper title. Alternatively use a non-null graph_signal.
 2. For graph-signal gaps, set grounding to [] and set graph_signal to {{"type": "white_space|contradiction|bridge", "description": "one sentence"}}.
-3. verification_queries: 3 SPECIFIC, NARROW sub-queries — name a precise method, population, or condition. Bad: "transformer attention mechanisms in stock price prediction". Good: "transformer cross-attention intraday volatility prediction without technical indicators".
+3. verification_queries: 3 SPECIFIC, NARROW sub-queries â€” name a precise method, population, or condition. Bad: "transformer attention mechanisms in stock price prediction". Good: "transformer cross-attention intraday volatility prediction without technical indicators".
 4. Do NOT invent gaps unsupported by the evidence above.
 5. Output 4-8 gaps. type must be exactly one of the 7 listed values.
-6. CRITICAL — gaps must be narrow: a good gap has fewer than 10 papers addressing it. State a specific combination of method + population + outcome, not a broad sub-field. If you can only find broad gaps, say so by outputting fewer gaps.
-7. BANNED phrasing — never write vague filler like "more research is needed", "further studies should explore", or "this area is understudied". Every statement, impact, and recommendation must name the specific missing variable / method / population / outcome.
+6. CRITICAL â€” gaps must be narrow: a good gap has fewer than 10 papers addressing it. State a specific combination of method + population + outcome, not a broad sub-field. If you can only find broad gaps, say so by outputting fewer gaps.
+7. BANNED phrasing â€” never write vague filler like "more research is needed", "further studies should explore", or "this area is understudied". Every statement, impact, and recommendation must name the specific missing variable / method / population / outcome.
 8. impact and recommendation are REQUIRED on every gap. The recommendation must be a concrete, runnable study, not a topic."""
 
     try:
@@ -681,13 +681,13 @@ class GapAnalysisRequest(BaseModel):
     seed_ids: list[str] = []
 
 
-@app.post("/gap-analysis")
+@app.post("/gaps")
 async def gap_analysis_endpoint(body: GapAnalysisRequest) -> dict[str, Any]:
     """Full server-side gap analysis pipeline.
 
     1. Extract author-stated limitations/future-work (PDF + abstract fallback).
     2. Compute graph signals (white-space between clusters, contradiction edges, bridges).
-    3. LLM gap induction seeded by 1+2 — structured JSON, grounded output.
+    3. LLM gap induction seeded by 1+2 â€” structured JSON, grounded output.
     4. Multi-query multi-index verification with SPECTER2-guided relevance filtering.
     Returns {gaps: [...], gap_map: {...}}.
     """
@@ -797,17 +797,17 @@ async def gap_analysis_endpoint(body: GapAnalysisRequest) -> dict[str, Any]:
         _build_egm(topic, papers),
     )
 
-    # 4b. Synthesise EGM-derived gaps (pre-verified: count=0 → confirmed, count=1 → partial)
+    # 4b. Synthesise EGM-derived gaps (pre-verified: count=0 â†’ confirmed, count=1 â†’ partial)
     egm_gaps: list[dict[str, Any]] = []
     for i, cell in enumerate((egm.get("empty_cells") or [])[:5]):
         confidence = "confirmed" if cell["count"] == 0 else "partial"
         d1, d2 = cell["dim1_value"], cell["dim2_value"]
         if cell["count"] == 0:
-            impact = f"The {egm.get('dim1_label', 'first')} × {egm.get('dim2_label', 'second')} combination of {d1} and {d2} is untested, so its effectiveness is currently unknown."
+            impact = f"The {egm.get('dim1_label', 'first')} Ã— {egm.get('dim2_label', 'second')} combination of {d1} and {d2} is untested, so its effectiveness is currently unknown."
             recommendation = f"Run an empirical study applying {d1} to {d2} and report standard outcome metrics to fill this matrix cell."
         else:
-            impact = f"A single study on {d1} × {d2} means the finding is unreplicated and its generality is unconfirmed."
-            recommendation = f"Replicate the existing {d1} × {d2} work on a new dataset or population to test robustness."
+            impact = f"A single study on {d1} Ã— {d2} means the finding is unreplicated and its generality is unconfirmed."
+            recommendation = f"Replicate the existing {d1} Ã— {d2} work on a new dataset or population to test robustness."
         egm_gaps.append({
             "id": f"egm-{i + 1}",
             "statement": cell["gap_statement"],
@@ -876,7 +876,7 @@ async def summarize_paper(body: SummarizeRequest) -> dict[str, Any]:
 
     We usually only have the abstract (full text is rarely open-access), so the
     prompt hard-constrains the model to the provided text and forces the literal
-    placeholder "Not stated in abstract" for any field it cannot ground — this is
+    placeholder "Not stated in abstract" for any field it cannot ground â€” this is
     the single biggest guard against the model filling methods/results from memory.
     """
     client, llm_model = get_llm()
@@ -891,7 +891,7 @@ async def summarize_paper(body: SummarizeRequest) -> dict[str, Any]:
     venue = p.get("venue") or "n/a"
 
     if not abstract:
-        # Nothing to ground a summary in — be honest rather than hallucinate.
+        # Nothing to ground a summary in â€” be honest rather than hallucinate.
         return {
             "summary": {
                 "tldr": "No abstract is available for this paper, so it cannot be summarized.",
@@ -921,9 +921,9 @@ Output ONLY valid JSON with this exact schema:
 {{
   "tldr": "one sentence, <=30 words: the objective plus the headline result",
   "objective": "the research question or goal",
-  "methods": "design, data, sample size, model/approach — or 'Not stated in abstract'",
+  "methods": "design, data, sample size, model/approach â€” or 'Not stated in abstract'",
   "key_findings": "the actual results, quantified where stated",
-  "limitations": "stated limitations — usually 'Not stated in abstract' for abstract-only input",
+  "limitations": "stated limitations â€” usually 'Not stated in abstract' for abstract-only input",
   "contribution": "why it matters / what it adds to the field"
 }}"""
 
@@ -943,12 +943,11 @@ Output ONLY valid JSON with this exact schema:
     summary = {k: (str(data.get(k) or "").strip() or "Not stated in abstract") for k in _SUMMARY_KEYS}
     return {"summary": summary, "grounded_on": "abstract"}
 
-
 # ---------------------------------------------------------------------------
 # Literature review generation
 # ---------------------------------------------------------------------------
 
-_AUTHOR_SURNAME_RE = re.compile(r"[^A-Za-zÀ-ɏ'\- ]+")
+_AUTHOR_SURNAME_RE = re.compile(r"[^A-Za-z\u00C0-\u024F\- ]+")
 
 
 def _surname(name: str) -> str:
@@ -957,7 +956,7 @@ def _surname(name: str) -> str:
     Returns "" for names we can't parse (e.g. non-Latin scripts the citekey
     regex strips entirely); callers fall back to the full name or "Anon".
     """
-    # Handle "Last, First" — surname is the comma-prefix.
+    # Handle "Last, First" â€” surname is the comma-prefix.
     if "," in (name or ""):
         head = (name.split(",")[0]).strip().split()
         if head:
@@ -1008,7 +1007,7 @@ def _reference_line(p: dict[str, Any]) -> str:
 def _humanize_citekeys(text: str, entry_map: dict[str, dict[str, Any]]) -> str:
     """Replace any raw citekeys the model leaked (e.g. 'Wang2020' or '[Vaswani2017]')
     with the human in-text label ('Wang & Li, 2020'). The model is asked to use the
-    labels directly but occasionally falls back to the bracket key — this keeps the
+    labels directly but occasionally falls back to the bracket key â€” this keeps the
     rendered review consistent. Longest keys first so 'Wang2020a' isn't half-matched."""
     if not text:
         return text
@@ -1041,7 +1040,7 @@ You are organizing a literature review. Below are {len(entries)} papers, each ta
 
 {blocks}
 
-Identify 3-6 THEMES that organize this literature (by research question, method family, or debate — NOT one theme per paper). For each theme, list which papers belong to it (a paper may appear in several themes). Also surface explicit debates (papers that disagree) and apparent gaps.
+Identify 3-6 THEMES that organize this literature (by research question, method family, or debate â€” NOT one theme per paper). For each theme, list which papers belong to it (a paper may appear in several themes). Also surface explicit debates (papers that disagree) and apparent gaps.
 
 Output ONLY valid JSON:
 {{
@@ -1108,10 +1107,10 @@ In-text citation labels to use:
 
 RULES:
 - Open with a theme-level topic sentence, NOT an author name.
-- SYNTHESIZE — do not summarize papers one at a time. Group and contrast them; use relationship language (agree, extend, build on, contradict).
+- SYNTHESIZE â€” do not summarize papers one at a time. Group and contrast them; use relationship language (agree, extend, build on, contradict).
 - Every claim is followed by an in-text citation using the labels above, e.g. (Smith, 2020) or grouped (Smith, 2020; Lee, 2021).
 - Note any disagreement or what remains unresolved within this theme.
-- 120-180 words. Academic prose. No headings, no bullet points, no preamble — output only the paragraph."""
+- 120-180 words. Academic prose. No headings, no bullet points, no preamble â€” output only the paragraph."""
 
     try:
         resp = await client.chat.completions.create(
@@ -1243,7 +1242,7 @@ async def verify_gap(
 
     total = len(results)
     if total == 0:
-        confidence = "incoherent"  # genuine zero — query may be nonsense
+        confidence = "incoherent"  # genuine zero â€” query may be nonsense
     elif total <= 3:
         confidence = "confirmed"
     elif total <= 15:
@@ -1261,3 +1260,240 @@ async def verify_gap(
             for r in results[:3]
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# Variable-Extraction Matrix
+# ---------------------------------------------------------------------------
+
+class ExtractMatrixRequest(BaseModel):
+    papers: list[dict[str, Any]]
+    columns: list[str]
+
+async def _extract_matrix_for_paper(
+    paper: dict[str, Any],
+    columns: list[str],
+    paper_sections: dict[str, list[str]]
+) -> tuple[str, dict[str, Any]]:
+    client, llm_model = get_llm()
+    pid = paper.get("id", "")
+    title = paper.get("title", "")
+    
+    default_cols = {
+        c: {
+            "extracted_value": None,
+            "source_passage": None,
+            "source_section": None,
+            "confidence": 0.0,
+            "pdf_page": None
+        }
+        for c in columns
+    }
+    
+    if not client:
+        return pid, {"title": title, "columns": default_cols}
+        
+    abstract = paper.get("abstract") or paper.get("tldr") or ""
+    has_pdf = bool(paper.get("pdf_url"))
+    
+    text_blocks = []
+    if abstract:
+        text_blocks.append(f"Abstract:\n{abstract}")
+        
+    for sec_name, sentences in paper_sections.items():
+        if sentences:
+            text_blocks.append(f"Section {sec_name.upper()}:\n" + "\n".join(sentences))
+            
+    full_text = "\n\n".join(text_blocks) if text_blocks else "No text available."
+    cols_json = json.dumps(columns)
+    
+    system_prompt = f"""You are a research data extraction assistant.
+Extract the requested variables from the provided paper text.
+
+Columns to extract: {cols_json}
+
+Available text for paper '{title}':
+{full_text}
+
+Output ONLY valid JSON matching this schema:
+{{
+  "columns": {{
+    "column_name": {{
+      "extracted_value": "The specific value or short summary (or null if not found)",
+      "source_passage": "The verbatim sentence containing the value (or null)",
+      "source_section": "The section name where it was found (e.g. 'Abstract', 'Limitations') (or null)",
+      "confidence": 0.85,
+      "pdf_page": 2
+    }}
+  }}
+}}
+
+Rules:
+1. If the paper has no PDF text (has_pdf={has_pdf}), you are falling back to abstract-only extraction. In this case, YOU MUST set pdf_page to null.
+2. If the value is not found in the provided text, set extracted_value to null and confidence to 0.0.
+3. If found, estimate pdf_page if possible, or set to null.
+"""
+
+    try:
+        resp = await client.chat.completions.create(
+            model=llm_model,
+            messages=[{"role": "user", "content": system_prompt}],
+            response_format={"type": "json_object"},
+            max_tokens=2500,
+            temperature=0.0,
+        )
+        data = json.loads(resp.choices[0].message.content or "{}")
+        columns_data = data.get("columns", {})
+        
+        res_cols = {}
+        for c in columns:
+            res_cols[c] = columns_data.get(c, default_cols[c])
+            
+        return pid, {"title": title, "columns": res_cols}
+    except Exception as e:
+        log.warning("Matrix extraction failed for %s: %s", pid, e)
+        return pid, {"title": title, "columns": default_cols}
+
+
+@app.post("/extract-matrix")
+async def extract_matrix_endpoint(body: ExtractMatrixRequest) -> dict[str, Any]:
+    """Dynamic Variable-Extraction Matrix."""
+    papers = body.papers
+    columns = body.columns
+    
+    # 1. Reuse existing GROBID-based PDF extraction pipeline used in /gaps
+    sections = await extract_sections(papers)
+    
+    # 2. Process all papers concurrently using asyncio
+    tasks = []
+    for p in papers:
+        pid = p.get("id", "")
+        p_sections = sections.get(pid, {})
+        tasks.append(_extract_matrix_for_paper(p, columns, p_sections))
+        
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    matrix = {}
+    for r in results:
+        if isinstance(r, BaseException):
+            log.warning("Task failed in extract_matrix_endpoint: %s", r)
+            continue
+        pid, data = r
+        if pid:
+            matrix[pid] = data
+            
+    return {"matrix": matrix}
+
+
+class CoverageRequest(BaseModel):
+    paper_ids: list[str]
+
+@app.post("/coverage")
+async def coverage_endpoint(request: Request, body: CoverageRequest) -> dict[str, Any]:
+    """Saturation Engine: Computes coverage saturation score for a set of papers."""
+    paper_ids = body.paper_ids
+    if not paper_ids:
+        return {"error": "No paper IDs provided"}
+
+    s2: SemanticScholar = request.app.state.s2
+    if not s2:
+        return {"error": "Semantic Scholar API not available"}
+
+    # 1. Fetch 1-hop citation neighborhood
+    links1 = await s2.get_links_batch(paper_ids)
+    hop1_ids = set(paper_ids)
+    for pid, (refs, citers) in links1.items():
+        hop1_ids.update(refs.keys())
+        hop1_ids.update(citers.keys())
+
+    # 2. Fetch 2-hop citation neighborhood (capped expansion)
+    max_hop1_to_expand = 800
+    expand_nodes = list(hop1_ids)[:max_hop1_to_expand]
+    links2 = await s2.get_links_batch(expand_nodes)
+    hop2_ids = set(hop1_ids)
+    for pid, (refs, citers) in links2.items():
+        hop2_ids.update(refs.keys())
+        hop2_ids.update(citers.keys())
+
+    # 3. Compute coverage score
+    total_network_nodes = len(hop2_ids)
+    captured = len(hop1_ids)
+    coverage_score = round(captured / total_network_nodes, 3) if total_network_nodes > 0 else 0.0
+
+    # 4. Find missing anchors candidates from 1-hop
+    missing_candidates = list(hop1_ids - set(paper_ids))[:1000]
+    if not missing_candidates:
+        return {
+            "coverage_score": coverage_score,
+            "total_network_nodes": total_network_nodes,
+            "captured_nodes": captured,
+            "missing_anchors": [],
+            "ready_to_write": coverage_score >= 0.85,
+            "threshold": 0.85
+        }
+
+    meta = await s2.get_papers_batch(missing_candidates)
+    
+    missing_candidates_sorted = sorted(
+        missing_candidates, 
+        key=lambda x: meta.get(x, {}).get("citation_count", 0) or 0, 
+        reverse=True
+    )
+    
+    top_50_missing = missing_candidates_sorted[:50]
+    seed_ids_for_graph = paper_ids + top_50_missing
+
+    # 5. Reuse SPECTER2 embedding + K-Means clustering logic from graph.py
+    graph_data = await build_graph(s2, seed_ids_for_graph)
+    nodes_data = {n["id"]: n for n in graph_data.get("nodes", [])}
+    edges_data = graph_data.get("edges", [])
+
+    missing_anchors = []
+    processed_missing = [n for n in nodes_data.values() if n["id"] not in paper_ids]
+    processed_missing.sort(key=lambda x: x.get("citation_count", 0) or 0, reverse=True)
+
+    for anchor in processed_missing[:5]:
+        anchor_id = anchor["id"]
+        cluster = anchor.get("cluster", "Research Cluster")
+        
+        connected = any(
+            (e["source"] == anchor_id and e["target"] in paper_ids) or 
+            (e["target"] == anchor_id and e["source"] in paper_ids)
+            for e in edges_data
+        )
+        
+        why_missing = (
+            f"High-citation hub in {cluster} that is loosely connected to your current set" 
+            if connected else 
+            f"High-citation hub in {cluster} with no connection to your current set"
+        )
+        
+        missing_anchors.append({
+            "paperId": anchor_id,
+            "title": anchor.get("label", "(untitled)"),
+            "citationCount": anchor.get("citation_count", 0),
+            "why_missing": why_missing
+        })
+
+    return {
+        "coverage_score": coverage_score,
+        "total_network_nodes": total_network_nodes,
+        "captured_nodes": captured,
+        "missing_anchors": missing_anchors,
+        "ready_to_write": coverage_score >= 0.85,
+        "threshold": 0.85
+    }
+
+
+@app.get("/paper/{paper_id}")
+async def get_paper_endpoint(paper_id: str, request: Request) -> dict[str, Any]:
+    """Fetch a single paper's full metadata by Semantic Scholar ID."""
+    s2: SemanticScholar = request.app.state.s2
+    if not s2:
+        raise HTTPException(status_code=503, detail="Semantic Scholar API not available")
+    
+    batch = await s2.get_papers_batch([paper_id])
+    if not batch or paper_id not in batch:
+        raise HTTPException(status_code=404, detail=f"Paper {paper_id} not found")
+    
+    return {"paper": batch[paper_id]}

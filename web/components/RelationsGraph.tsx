@@ -13,6 +13,7 @@ import {
 import "@xyflow/react/dist/style.css";
 // @ts-ignore
 import ELK from "elkjs/lib/elk.bundled.js";
+import { useTheme } from "next-themes";
 
 import PaperNode from "./graph/PaperNode";
 import ClusterGroupNode from "./graph/ClusterGroupNode";
@@ -33,11 +34,11 @@ const CLUSTER_PALETTE = [
 const ALL_INTENTS = ["Builds Upon", "Applies Method", "Refutes", "Similar Research", "General Reference"];
 
 const INTENT_STYLE: Record<string, { active: string; dot: string }> = {
-  "Builds Upon":       { active: "border-emerald-600 text-emerald-400 bg-emerald-950/40", dot: "bg-emerald-400" },
-  "Applies Method":    { active: "border-blue-600 text-blue-400 bg-blue-950/40",          dot: "bg-blue-400" },
-  "Refutes":           { active: "border-red-600 text-red-400 bg-red-950/40",             dot: "bg-red-400" },
-  "Similar Research":  { active: "border-violet-600 text-violet-400 bg-violet-950/40",   dot: "bg-violet-400" },
-  "General Reference": { active: "border-zinc-600 text-zinc-400 bg-zinc-800/40",         dot: "bg-zinc-500" },
+  "Builds Upon":       { active: "border-emerald-200 dark:border-emerald-600 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40", dot: "bg-emerald-500 dark:bg-emerald-400" },
+  "Applies Method":    { active: "border-blue-200 dark:border-blue-600 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40",          dot: "bg-blue-500 dark:bg-blue-400" },
+  "Refutes":           { active: "border-red-200 dark:border-red-600 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40",             dot: "bg-red-500 dark:bg-red-400" },
+  "Similar Research":  { active: "border-violet-200 dark:border-violet-600 text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/40",   dot: "bg-violet-500 dark:bg-violet-400" },
+  "General Reference": { active: "border-zinc-200 dark:border-zinc-600 text-zinc-600 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-800/40",         dot: "bg-zinc-400 dark:bg-zinc-500" },
 };
 
 type Props = {
@@ -207,6 +208,8 @@ function GraphInner({ data, visibleIntents }: { data: GraphResponse; visibleInte
 
   const filteredEdges = edges.filter(e => visibleIntents.has((e.data as any)?.intent ?? "General Reference"));
 
+  const { theme } = useTheme();
+  
   return (
     <ReactFlow
       nodes={nodes}
@@ -220,8 +223,8 @@ function GraphInner({ data, visibleIntents }: { data: GraphResponse; visibleInte
       nodesDraggable
     >
       <ArrowDefs />
-      <Background color="#1c1c1e" gap={28} size={1} />
-      <Controls className="!bg-zinc-900 !border-zinc-700 !rounded-lg !shadow-xl" showInteractive={false} />
+      <Background color={theme === "dark" ? "#52525b" : "#d4d4d8"} gap={28} size={1.5} />
+      <Controls className="!bg-white dark:!bg-zinc-900 !border-zinc-200 dark:!border-zinc-700 !rounded-lg !shadow-xl" showInteractive={false} />
     </ReactFlow>
   );
 }
@@ -245,10 +248,10 @@ export default function RelationsGraph({ loading, error, data }: Props) {
     <section>
       {/* Header */}
       <div className="flex items-center gap-3 mb-3">
-        <span className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+        <span className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
           Relations graph
         </span>
-        <div className="flex-1 h-px bg-zinc-800/60" />
+        <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800/60" />
         {data && (
           <span className="text-[10px] text-zinc-700">
             {data.nodes.length} papers · {data.edges.length} edges
@@ -259,7 +262,7 @@ export default function RelationsGraph({ loading, error, data }: Props) {
       {/* Intent filter toolbar */}
       {data && data.edges.length > 0 && (
         <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <span className="text-[10px] text-zinc-700 shrink-0">Show:</span>
+          <span className="text-[10px] text-zinc-500 dark:text-zinc-700 shrink-0">Show:</span>
           {ALL_INTENTS.filter(i => intentCounts[i] > 0).map(intent => {
             const s = INTENT_STYLE[intent] ?? INTENT_STYLE["General Reference"];
             const active = visibleIntents.has(intent);
@@ -268,10 +271,10 @@ export default function RelationsGraph({ loading, error, data }: Props) {
                 key={intent}
                 onClick={() => toggleIntent(intent)}
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] border transition-all ${
-                  active ? s.active : "border-zinc-800 text-zinc-700 bg-transparent"
+                  active ? s.active : "border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-700 bg-transparent"
                 }`}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${active ? s.dot : "bg-zinc-700"}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${active ? s.dot : "bg-zinc-300 dark:bg-zinc-700"}`} />
                 {intent}
                 <span className="opacity-50">({intentCounts[intent]})</span>
               </button>
@@ -287,15 +290,15 @@ export default function RelationsGraph({ loading, error, data }: Props) {
         </div>
       )}
       {error && (
-        <p className="text-red-400 text-sm bg-red-950/20 border border-red-900/30 rounded-xl px-4 py-3 mb-3">{error}</p>
+        <p className="text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl px-4 py-3 mb-3 shadow-sm">{error}</p>
       )}
       {!loading && data && data.nodes.length === 0 && (
-        <p className="text-zinc-600 text-sm mb-3">Not enough citation data to build a graph.</p>
+        <p className="text-zinc-500 dark:text-zinc-600 text-sm mb-3">Not enough citation data to build a graph.</p>
       )}
 
       <div
-        className="relative border border-zinc-800/50 rounded-2xl overflow-hidden"
-        style={{ height: 700, background: "#07070a" }}
+        className="relative border border-zinc-200 dark:border-zinc-800/80 rounded-2xl overflow-hidden bg-white dark:bg-[#0c0c0e] shadow-xl shadow-black/5 dark:shadow-black/40"
+        style={{ height: 700 }}
       >
         {!loading && data && data.nodes.length > 0 && (
           <ReactFlowProvider>
@@ -306,12 +309,12 @@ export default function RelationsGraph({ loading, error, data }: Props) {
 
       {/* How to read this — encodings legend */}
       {data && data.nodes.length > 0 && (
-        <div className="flex items-center gap-x-4 gap-y-1 flex-wrap mt-2.5 text-[10px] text-zinc-600">
-          <span className="text-zinc-700 font-medium uppercase tracking-wider text-[9px]">How to read this</span>
+        <div className="flex items-center gap-x-4 gap-y-1 flex-wrap mt-2.5 text-[10px] text-zinc-500 dark:text-zinc-600">
+          <span className="text-zinc-600 dark:text-zinc-700 font-medium uppercase tracking-wider text-[9px]">How to read this</span>
           <span className="inline-flex items-center gap-1.5">
             <span className="inline-flex items-end gap-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-zinc-600 inline-block" />
-              <span className="w-2.5 h-2.5 rounded-full bg-zinc-500 inline-block" />
+              <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-600 inline-block" />
+              <span className="w-2.5 h-2.5 rounded-full bg-zinc-300 dark:bg-zinc-500 inline-block" />
             </span>
             size = citation count
           </span>
@@ -321,10 +324,10 @@ export default function RelationsGraph({ loading, error, data }: Props) {
             color = theme cluster
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="w-4 h-px inline-block bg-zinc-500" />
+            <span className="w-4 h-px inline-block bg-zinc-300 dark:bg-zinc-500" />
             edge = citation link (color = type)
           </span>
-          <span className="text-zinc-700">· hover for details · click a node to open the paper</span>
+          <span className="text-zinc-500 dark:text-zinc-700">· hover for details · click a node to open the paper</span>
         </div>
       )}
 
@@ -384,10 +387,10 @@ function GraphInsights({ data }: { data: GraphResponse }) {
       {/* Stat cards */}
       <div className="grid grid-cols-3 gap-3">
         {mostCited && (
-          <div className="rounded-xl border border-zinc-800/40 bg-zinc-900/20 px-3 py-2.5 space-y-0.5">
-            <div className="text-[9px] uppercase tracking-widest text-zinc-600">Most cited</div>
-            <div className="text-xs text-zinc-300 font-medium leading-snug line-clamp-2">{mostCited.label}</div>
-            <div className="text-[10px] text-zinc-600">
+          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/20 px-3 py-2.5 space-y-0.5 shadow-sm">
+            <div className="text-[9px] uppercase tracking-widest text-zinc-500 dark:text-zinc-600">Most cited</div>
+            <div className="text-xs text-zinc-900 dark:text-zinc-300 font-medium leading-snug line-clamp-2">{mostCited.label}</div>
+            <div className="text-[10px] text-zinc-500 dark:text-zinc-600">
               {mostCited.citation_count >= 1000
                 ? `${(mostCited.citation_count / 1000).toFixed(1)}k citations`
                 : `${mostCited.citation_count} citations`}
@@ -396,17 +399,17 @@ function GraphInsights({ data }: { data: GraphResponse }) {
           </div>
         )}
         {newest && (
-          <div className="rounded-xl border border-zinc-800/40 bg-zinc-900/20 px-3 py-2.5 space-y-0.5">
-            <div className="text-[9px] uppercase tracking-widest text-zinc-600">Most recent</div>
-            <div className="text-xs text-zinc-300 font-medium leading-snug line-clamp-2">{newest.label}</div>
-            <div className="text-[10px] text-zinc-600">{newest.year}</div>
+          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/20 px-3 py-2.5 space-y-0.5 shadow-sm">
+            <div className="text-[9px] uppercase tracking-widest text-zinc-500 dark:text-zinc-600">Most recent</div>
+            <div className="text-xs text-zinc-900 dark:text-zinc-300 font-medium leading-snug line-clamp-2">{newest.label}</div>
+            <div className="text-[10px] text-zinc-500 dark:text-zinc-600">{newest.year}</div>
           </div>
         )}
         {hubNode && hubCount > 1 && (
-          <div className="rounded-xl border border-zinc-800/40 bg-zinc-900/20 px-3 py-2.5 space-y-0.5">
-            <div className="text-[9px] uppercase tracking-widest text-zinc-600">Most connected</div>
-            <div className="text-xs text-zinc-300 font-medium leading-snug line-clamp-2">{hubNode.label}</div>
-            <div className="text-[10px] text-zinc-600">{hubCount} connections</div>
+          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800/40 bg-white dark:bg-zinc-900/20 px-3 py-2.5 space-y-0.5 shadow-sm">
+            <div className="text-[9px] uppercase tracking-widest text-zinc-500 dark:text-zinc-600">Most connected</div>
+            <div className="text-xs text-zinc-900 dark:text-zinc-300 font-medium leading-snug line-clamp-2">{hubNode.label}</div>
+            <div className="text-[10px] text-zinc-500 dark:text-zinc-600">{hubCount} connections</div>
           </div>
         )}
       </div>

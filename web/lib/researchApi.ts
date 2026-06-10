@@ -22,12 +22,12 @@ export async function fetchGapAnalysis(
   papers: Paper[],
   seedIds: string[],
 ): Promise<GapAnalysisResponse> {
-  const r = await fetch(`${BASE}/gap-analysis`, {
+  const r = await fetch(`${BASE}/gaps`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ topic, papers, seed_ids: seedIds }),
   });
-  if (!r.ok) throw new Error(`gap-analysis ${r.status}: ${await r.text()}`);
+  if (!r.ok) throw new Error(`gaps ${r.status}: ${await r.text()}`);
   return r.json();
 }
 

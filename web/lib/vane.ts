@@ -4,7 +4,7 @@ import type { VaneAnswer, VaneProvider } from "./types";
 // cross-origin block — Vane sends no CORS headers. NEXT_PUBLIC_VANE_URL is
 // still exposed so the SetupBanner can show the user where to open Vane's UI.
 const PROXY = "/api/vane";
-const PUBLIC_VANE_URL = process.env.NEXT_PUBLIC_VANE_URL || "http://localhost:3000";
+const PUBLIC_VANE_URL = process.env.NEXT_PUBLIC_VANE_URL || "http://localhost:3001";
 
 export type ModelChoice = {
   chat: { providerId: string; key: string };

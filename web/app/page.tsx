@@ -6,6 +6,8 @@ import ConceptOverview from "@/components/ConceptOverview";
 import PapersList from "@/components/PapersList";
 import LiteratureReview from "@/components/LiteratureReview";
 import GapAnalysisSection from "@/components/GapAnalysis";
+import ExtractionMatrix from "@/components/ExtractionMatrix";
+import CoverageDashboard from "@/components/CoverageDashboard";
 import RelationsGraph from "@/components/RelationsGraph";
 import ChatBox from "@/components/ChatBox";
 import SetupBanner from "@/components/SetupBanner";
@@ -36,6 +38,13 @@ export default function Page() {
   const [gapAnalyzing, setGapAnalyzing] = useState(false);
   const [gapErr, setGapErr] = useState<string | null>(null);
 
+  const [showGap, setShowGap] = useState(false);
+  const [showMatrix, setShowMatrix] = useState(false);
+  const [showCoverage, setShowCoverage] = useState(false);
+  const [showGraph, setShowGraph] = useState(false);
+  const [showLitReview, setShowLitReview] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+
   const activeRunId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -61,6 +70,7 @@ export default function Page() {
     setPapersErr(null); setPapersLoading(false);
     setGraphErr(null); setGraphLoading(false);
     setGapAnalyzing(false); setGapErr(null);
+    setShowGap(false); setShowMatrix(false); setShowCoverage(false); setShowGraph(false); setShowLitReview(false);
     setRunning(false);
     setSession(s);
   };
@@ -71,12 +81,16 @@ export default function Page() {
     setPapersErr(null); setPapersLoading(false);
     setGraphErr(null); setGraphLoading(false);
     setGapAnalyzing(false); setGapErr(null);
+    setShowGap(false); setShowMatrix(false); setShowCoverage(false); setShowGraph(false); setShowLitReview(false);
     setRunning(false);
     setSession(null);
   };
 
   const runSearch = async (topic: string) => {
-    if (!models) return;
+    if (!models) {
+      alert("Please complete the one-time setup by configuring an API key first.");
+      return;
+    }
     const fresh = createSession(topic);
     activeRunId.current = fresh.id;
     setSession(fresh);
@@ -85,6 +99,7 @@ export default function Page() {
     setPapersErr(null); setPapersLoading(true);
     setGraphErr(null); setGraphLoading(false);
     setGapAnalyzing(false); setGapErr(null);
+    setShowGap(false); setShowMatrix(false); setShowCoverage(false); setShowGraph(false); setShowLitReview(false);
 
     const stillActive = () => activeRunId.current === fresh.id;
 
@@ -192,96 +207,211 @@ export default function Page() {
   ];
 
   return (
-    <div className="flex h-screen bg-[#04070f] text-zinc-100 overflow-hidden">
+    <div className="flex min-h-screen text-foreground">
       <Sidebar activeId={session?.id ?? null} onSelect={handleSelect} onNew={handleNew} />
 
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 w-full pt-28 pb-12 overflow-y-auto">
         {!topic ? (
-          <div className="relative h-full flex flex-col items-center justify-center px-6 py-16 overflow-hidden">
-            {/* Background glow */}
-            <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-indigo-600/8 rounded-full blur-[120px] pointer-events-none" />
-            <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[300px] bg-violet-600/6 rounded-full blur-[80px] pointer-events-none" />
-
-            {/* Dot grid */}
-            <div className="absolute inset-0 bg-dots opacity-100 pointer-events-none" />
-
-            <div className="relative w-full max-w-2xl space-y-8">
+          <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-8 items-center h-full">
+            
+            {/* Left side: Text & Actions */}
+            <div className="space-y-8 max-w-xl">
               {/* Badge */}
-              <div className="flex justify-center">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                  Research Intelligence
-                </div>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                AI-Powered Research Analytics
               </div>
 
               {/* Heading */}
-              <div className="text-center space-y-4">
-                <h1 className="text-5xl font-bold tracking-tight gradient-heading leading-tight">
-                  Research anything.
+              <div className="space-y-4">
+                <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 leading-[1.1]" style={{ fontFamily: "ui-serif, Georgia, serif" }}>
+                  Research intelligence, <br />
+                  <span className="bg-gradient-to-r from-blue-600 to-indigo-500 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent italic pr-2">reimagined</span>
                 </h1>
-                <p className="text-zinc-500 text-base leading-relaxed max-w-lg mx-auto">
-                  Enter a topic — get a concept overview, related papers,
-                  gap analysis, and a research assistant in one shot.
+                <p className="text-zinc-600 dark:text-zinc-400 text-lg leading-relaxed">
+                  Automatically synthesize concept overviews, map academic paper relationships, and generate actionable research gap analyses — all powered by advanced LLMs.
                 </p>
               </div>
 
               {!modelsLoading && !models && <SetupBanner />}
 
-              <TopicBox onSubmit={runSearch} disabled={running || !models} hero />
+              {/* TopicBox integrated into Hero */}
+              <div className="pt-2">
+                <TopicBox onSubmit={runSearch} disabled={running} hero />
+              </div>
 
               {/* Example chips */}
-              <div className="space-y-3">
-                <p className="text-center text-zinc-700 text-xs">Try an example</p>
-                <div className="flex flex-wrap gap-2 justify-center">
+              <div className="space-y-3 pt-4">
+                <div className="flex flex-wrap gap-2">
                   {EXAMPLE_TOPICS.map((t) => (
                     <button
                       key={t}
                       onClick={() => !running && models && runSearch(t)}
                       disabled={running || !models}
-                      className="px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.08] hover:border-indigo-500/30 text-zinc-500 hover:text-zinc-300 text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-3 py-1.5 rounded-full bg-white dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 hover:border-blue-500/50 text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 text-xs transition-all shadow-sm"
                     >
                       {t}
                     </button>
                   ))}
                 </div>
               </div>
-
-              <p className="text-center text-zinc-800 text-xs">
-                Saved in your browser · No account needed
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="max-w-4xl mx-auto px-6 py-10 space-y-12">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-xs text-zinc-700">
-                <span>Research</span>
-                <span className="text-zinc-800">/</span>
-                <span className="text-zinc-500 truncate max-w-sm font-medium">{topic}</span>
-              </div>
-              <TopicBox onSubmit={runSearch} disabled={running || !models} />
             </div>
 
-            <ConceptOverview loading={overviewLoading} error={overviewErr} answer={overview} />
-            <PapersList loading={papersLoading} error={papersErr} papers={papers} />
-            {papers.length > 0 && (
-              <LiteratureReview key={session?.id ?? topic} topic={topic} papers={papers} />
-            )}
-            <GapAnalysisSection
-              analyzing={gapAnalyzing}
-              error={gapErr}
-              data={gaps}
-            />
-            <RelationsGraph loading={graphLoading} error={graphErr} data={graph} />
-            {models && (
-              <ChatBox
-                models={models}
-                overview={overview}
-                papers={papers}
-                topic={topic}
-                turns={chat}
-                onTurnsChange={handleTurnsChange}
+            {/* Right side: Hero Image Card */}
+            <div className="relative w-full aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 group">
+              {/* Use a standard img tag to avoid needing Next/Image config for local absolute paths right now */}
+              <img 
+                src="/hero.png" 
+                alt="Researcher analyzing data" 
+                className="object-cover w-full h-full transition-transform duration-700 group-hover:scale-105"
               />
+              {/* Overlay matching "Real-time Detection" from screenshot */}
+              <div className="absolute inset-x-0 bottom-0 p-8 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+                <h3 className="text-white font-bold text-lg mb-1">Real-time Literature Analysis</h3>
+                <p className="text-white/80 text-sm">LLM-powered gap extraction identifies missing research in real-time</p>
+              </div>
+              {/* Pagination Dots */}
+              <div className="absolute bottom-8 right-8 flex gap-1.5">
+                <div className="w-4 h-1.5 rounded-full bg-white"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-white/40"></div>
+                <div className="w-1.5 h-1.5 rounded-full bg-white/40"></div>
+              </div>
+            </div>
+
+          </div>
+
+        ) : (
+          <div className="w-full max-w-[95%] mx-auto px-4 sm:px-6 space-y-12 pb-32">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                <span>Research</span>
+                <span className="text-zinc-300 dark:text-zinc-700">/</span>
+                <span className="text-zinc-900 dark:text-zinc-200 truncate max-w-sm font-medium">{topic}</span>
+              </div>
+              <TopicBox onSubmit={runSearch} disabled={running} />
+            </div>
+
+            {(() => {
+              const activeBlocks: React.ReactNode[] = [];
+              if (showGap) activeBlocks.push(
+                <GapAnalysisSection key="gap" analyzing={gapAnalyzing} error={gapErr} data={gaps} />
+              );
+              if (showLitReview && papers.length > 0) activeBlocks.push(
+                <LiteratureReview key="lit" topic={topic} papers={papers} />
+              );
+              if (showMatrix && papers.length > 0) activeBlocks.push(
+                <ExtractionMatrix key="matrix" papers={papers} />
+              );
+              if (showCoverage && papers.length > 0) activeBlocks.push(
+                <CoverageDashboard 
+                  key="coverage"
+                  paperIds={papers.map((p) => p.id)} 
+                  onAddPaper={(paper) => {
+                    if (!papers.some((p) => p.id === paper.id)) {
+                      patchSession({ papers: [...papers, paper] });
+                    }
+                  }}
+                />
+              );
+              if (showGraph) activeBlocks.push(
+                <RelationsGraph key="graph" loading={graphLoading} error={graphErr} data={graph} />
+              );
+
+              // ConceptOverview (Left) is very short. PapersList (Right) is very long.
+              // To prevent massive gaps, we heavily bias the first active blocks into the left column.
+              const leftBlocks: React.ReactNode[] = [];
+              const rightBlocks: React.ReactNode[] = [];
+              activeBlocks.forEach((block, idx) => {
+                if (idx === 0 || idx === 1) leftBlocks.push(block); // 1st and 2nd go Left
+                else if (idx % 2 === 0) rightBlocks.push(block);    // 3rd goes Right
+                else leftBlocks.push(block);                        // 4th goes Left
+              });
+
+              return (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                  {/* Left Column */}
+                  <div className="flex flex-col gap-8">
+                    <ConceptOverview loading={overviewLoading} error={overviewErr} answer={overview} />
+                    {leftBlocks}
+                  </div>
+
+                  {/* Right Column */}
+                  <div className="flex flex-col gap-8">
+                    <PapersList loading={papersLoading} error={papersErr} papers={papers} />
+                    {rightBlocks}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Floating Ask Follow-ups */}
+            {models && showChat && (
+              <div className="fixed bottom-[88px] left-1/2 -translate-x-1/2 w-[95vw] max-w-3xl z-40">
+                <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white/95 dark:bg-[#0c0c0e]/95 backdrop-blur-xl shadow-2xl shadow-black/10 dark:shadow-black/50 p-6 max-h-[60vh] overflow-y-auto">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Ask Follow-ups</h3>
+                    <button onClick={() => setShowChat(false)} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 p-1">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                  <ChatBox
+                    models={models}
+                    overview={overview}
+                    papers={papers}
+                    topic={topic}
+                    turns={chat}
+                    onTurnsChange={handleTurnsChange}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Floating Bottom Dock */}
+            {session && (
+              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 p-2 rounded-2xl bg-white/70 dark:bg-[#07070a]/70 backdrop-blur-xl border border-zinc-200/50 dark:border-zinc-800/50 shadow-2xl overflow-x-auto max-w-[95vw]">
+                <button
+                  onClick={() => setShowGap(!showGap)}
+                  className={`px-5 py-3 rounded-xl font-medium text-sm whitespace-nowrap transition-colors flex items-center gap-2 ${showGap ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300'}`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                  Gap Analysis
+                </button>
+                <button
+                  onClick={() => setShowLitReview(!showLitReview)}
+                  className={`px-5 py-3 rounded-xl font-medium text-sm whitespace-nowrap transition-colors flex items-center gap-2 ${showLitReview ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300'}`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                  Literature Review
+                </button>
+                <button
+                  onClick={() => setShowMatrix(!showMatrix)}
+                  className={`px-5 py-3 rounded-xl font-medium text-sm whitespace-nowrap transition-colors flex items-center gap-2 ${showMatrix ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300'}`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                  Extraction Matrix
+                </button>
+                <button
+                  onClick={() => setShowCoverage(!showCoverage)}
+                  className={`px-5 py-3 rounded-xl font-medium text-sm whitespace-nowrap transition-colors flex items-center gap-2 ${showCoverage ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300'}`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                  Coverage Saturation
+                </button>
+                <button
+                  onClick={() => setShowGraph(!showGraph)}
+                  className={`px-5 py-3 rounded-xl font-medium text-sm whitespace-nowrap transition-colors flex items-center gap-2 ${showGraph ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300'}`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                  Relation Graphs
+                </button>
+                <button
+                  onClick={() => setShowChat(!showChat)}
+                  className={`px-5 py-3 rounded-xl font-medium text-sm whitespace-nowrap transition-colors flex items-center gap-2 ${showChat ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300'}`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+                  Ask Follow-ups
+                </button>
+              </div>
             )}
           </div>
         )}

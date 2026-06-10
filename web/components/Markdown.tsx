@@ -9,43 +9,43 @@ export default function Markdown({ children }: Props) {
       remarkPlugins={[remarkGfm]}
       components={{
         h1: ({ children }) => (
-          <h1 className="text-xl font-bold mt-4 mb-2 text-zinc-100">{children}</h1>
+          <h1 className="text-xl font-bold mt-4 mb-2 text-zinc-900 dark:text-zinc-100">{children}</h1>
         ),
         h2: ({ children }) => (
-          <h2 className="text-lg font-semibold mt-4 mb-2 text-zinc-100">{children}</h2>
+          <h2 className="text-lg font-semibold mt-4 mb-2 text-zinc-900 dark:text-zinc-100">{children}</h2>
         ),
         h3: ({ children }) => (
-          <h3 className="text-base font-semibold mt-3 mb-1 text-zinc-200">{children}</h3>
+          <h3 className="text-base font-semibold mt-3 mb-1 text-zinc-800 dark:text-zinc-200">{children}</h3>
         ),
         h4: ({ children }) => (
-          <h4 className="text-sm font-semibold mt-2 mb-1 text-zinc-200">{children}</h4>
+          <h4 className="text-sm font-semibold mt-2 mb-1 text-zinc-800 dark:text-zinc-200">{children}</h4>
         ),
         p: ({ children }) => (
-          <p className="mb-2 leading-relaxed text-zinc-200">{children}</p>
+          <p className="mb-2 leading-relaxed text-zinc-800 dark:text-zinc-200">{children}</p>
         ),
         ul: ({ children }) => (
-          <ul className="list-disc pl-5 mb-2 space-y-1 text-zinc-200">{children}</ul>
+          <ul className="list-disc pl-5 mb-2 space-y-1 text-zinc-800 dark:text-zinc-200">{children}</ul>
         ),
         ol: ({ children }) => (
-          <ol className="list-decimal pl-5 mb-2 space-y-1 text-zinc-200">{children}</ol>
+          <ol className="list-decimal pl-5 mb-2 space-y-1 text-zinc-800 dark:text-zinc-200">{children}</ol>
         ),
-        li: ({ children }) => <li className="text-zinc-200">{children}</li>,
+        li: ({ children }) => <li className="text-zinc-800 dark:text-zinc-200">{children}</li>,
         strong: ({ children }) => (
-          <strong className="font-semibold text-zinc-100">{children}</strong>
+          <strong className="font-semibold text-zinc-900 dark:text-zinc-100">{children}</strong>
         ),
-        em: ({ children }) => <em className="italic text-zinc-300">{children}</em>,
+        em: ({ children }) => <em className="italic text-zinc-700 dark:text-zinc-300">{children}</em>,
         a: ({ href, children }) => (
           <a
             href={href}
             target="_blank"
             rel="noreferrer"
-            className="text-indigo-400 hover:text-indigo-300 underline-offset-2 hover:underline transition-colors"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline-offset-2 hover:underline transition-colors"
           >
             {children}
           </a>
         ),
         blockquote: ({ children }) => (
-          <blockquote className="border-l-2 border-zinc-600 pl-3 my-2 text-zinc-400 italic">
+          <blockquote className="border-l-2 border-zinc-300 dark:border-zinc-600 pl-3 my-2 text-zinc-600 dark:text-zinc-400 italic">
             {children}
           </blockquote>
         ),
@@ -53,13 +53,13 @@ export default function Markdown({ children }: Props) {
           const isBlock = className?.includes("language-");
           if (isBlock) {
             return (
-              <pre className="bg-zinc-950 border border-zinc-800 rounded-md p-3 my-2 overflow-x-auto">
-                <code className="text-sm text-zinc-300">{children}</code>
+              <pre className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md p-3 my-2 overflow-x-auto shadow-sm">
+                <code className="text-sm text-zinc-800 dark:text-zinc-300">{children}</code>
               </pre>
             );
           }
           return (
-            <code className="bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded text-sm">
+            <code className="bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-300 px-1.5 py-0.5 rounded text-sm">
               {children}
             </code>
           );
@@ -67,21 +67,21 @@ export default function Markdown({ children }: Props) {
         pre: ({ children }) => <>{children}</>,
         table: ({ children }) => (
           <div className="overflow-x-auto my-2">
-            <table className="min-w-full text-sm border border-zinc-700">{children}</table>
+            <table className="min-w-full text-sm border border-zinc-200 dark:border-zinc-700">{children}</table>
           </div>
         ),
         thead: ({ children }) => (
-          <thead className="bg-zinc-800/60">{children}</thead>
+          <thead className="bg-zinc-100 dark:bg-zinc-800/60">{children}</thead>
         ),
         th: ({ children }) => (
-          <th className="px-3 py-1.5 text-left text-zinc-300 font-medium border-b border-zinc-700">
+          <th className="px-3 py-1.5 text-left text-zinc-700 dark:text-zinc-300 font-medium border-b border-zinc-200 dark:border-zinc-700">
             {children}
           </th>
         ),
         td: ({ children }) => (
-          <td className="px-3 py-1.5 text-zinc-300 border-b border-zinc-800">{children}</td>
+          <td className="px-3 py-1.5 text-zinc-700 dark:text-zinc-300 border-b border-zinc-200 dark:border-zinc-800">{children}</td>
         ),
-        hr: () => <hr className="border-zinc-700 my-3" />,
+        hr: () => <hr className="border-zinc-200 dark:border-zinc-700 my-3" />,
       }}
     >
       {children}

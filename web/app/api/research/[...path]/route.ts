@@ -17,7 +17,7 @@
  * take minutes.
  */
 
-const RESEARCH_API_URL = process.env.RESEARCH_API_URL || "http://localhost:8000";
+
 
 // Run on the Node runtime (not Edge) so we have full network primitives.
 export const runtime = "nodejs";
@@ -26,6 +26,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 async function proxy(req: Request, pathParts: string[]) {
+  const RESEARCH_API_URL = process.env.RESEARCH_API_URL || "http://localhost:8000";
   const search = new URL(req.url).search;
   const target = `${RESEARCH_API_URL}/${pathParts.join("/")}${search}`;
 

@@ -2,34 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: dark;
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --border: 240 5.9% 90%;
+  }
+
+  .dark {
+    --background: 240 10% 6%;
+    --foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+  }
 }
 
-html,
-body {
-  background: #04070f;
-  color: #f4f4f5;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: "cv11", "ss01";
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv11", "ss01";
+  }
 }
 
-/* Gradient heading */
-.gradient-heading {
-  background: linear-gradient(135deg, #ffffff 20%, #a5b4fc 60%, #818cf8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+/* Background grid matching VioTrack */
+.bg-grid-pattern {
+  background-image: 
+    linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+  background-size: 60px 60px;
+  background-position: center top;
 }
 
-/* Subtle dot grid background */
-.bg-dots {
-  background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
-  background-size: 28px 28px;
+.dark .bg-grid-pattern {
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  background-position: center top;
 }
 
-/* Center glow */
+/* Subtle glow for the hero area */
 .hero-glow::before {
   content: "";
   position: absolute;
@@ -45,8 +61,10 @@ body {
 /* Slim scrollbars */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #1e1e2e; border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: #2e2e4e; }
+::-webkit-scrollbar-thumb { background: #e4e4e7; border-radius: 99px; }
+.dark ::-webkit-scrollbar-thumb { background: #27272a; }
+::-webkit-scrollbar-thumb:hover { background: #d4d4d8; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
 
 /* Skeleton shimmer */
 @keyframes shimmer {
@@ -54,10 +72,13 @@ body {
   100% { background-position: 200% 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, #0d1117 25%, #1a1f2e 50%, #0d1117 75%);
+  background: linear-gradient(90deg, #f4f4f5 25%, #e4e4e7 50%, #f4f4f5 75%);
   background-size: 200% 100%;
   animation: shimmer 1.6s ease-in-out infinite;
   border-radius: 4px;
+}
+.dark .skeleton {
+  background: linear-gradient(90deg, #09090b 25%, #18181b 50%, #09090b 75%);
 }
 
 /* Pulsing dot loader */
@@ -71,7 +92,7 @@ body {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #4f46e5;
+  background: #3b82f6; /* blue-500 matching viotrack */
   animation: pulse-dot 1.3s ease-in-out infinite;
 }
 .dot-loader span:nth-child(2) { animation-delay: 0.18s; }
@@ -80,12 +101,19 @@ body {
 /* Graph tooltip */
 .graph-tooltip,
 .scene-tooltip {
-  background: #0d1117 !important;
-  color: #e4e4e7 !important;
-  border: 1px solid #1e2030 !important;
+  background: #ffffff !important;
+  color: #18181b !important;
+  border: 1px solid #e4e4e7 !important;
   border-radius: 8px !important;
   padding: 8px 10px !important;
   font-size: 12px !important;
   max-width: 320px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1) !important;
+}
+.dark .graph-tooltip,
+.dark .scene-tooltip {
+  background: #09090b !important;
+  color: #e4e4e7 !important;
+  border: 1px solid #27272a !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
 }

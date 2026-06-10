@@ -17,10 +17,10 @@ type Props = {
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3 mb-4">
-      <span className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500">
+      <span className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
         {children}
       </span>
-      <div className="flex-1 h-px bg-zinc-900" />
+      <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800/60" />
     </div>
   );
 }
@@ -65,9 +65,6 @@ function buildContext(overview: VaneAnswer | null, papers: Paper[], topic: strin
   return parts.join("\n\n");
 }
 
-// Single self-routing constitution: instead of a separate classifier call +
-// hard-coded per-mode templates, we hand the LLM the whole style guide and let
-// it pick the right register itself, always re-anchored to the session topic.
 function buildConstitution(topic: string): string {
   return `You are a research intelligence assistant
 embedded in an academic literature review tool focused
@@ -184,24 +181,23 @@ export default function ChatBox({ models, overview, papers, topic, turns, onTurn
 
   return (
     <section>
-      <SectionLabel>Ask follow-ups</SectionLabel>
 
       {turns.length > 0 && (
         <div className="space-y-3 mb-4">
           {turns.map((t, i) => (
             <div
               key={i}
-              className={`rounded-xl px-4 py-3.5 ${
+              className={`rounded-xl px-4 py-3.5 shadow-sm ${
                 t.role === "human"
-                  ? "bg-zinc-800/50 border border-zinc-700/40 ml-8"
-                  : "bg-zinc-900/20 border border-zinc-800/50"
+                  ? "bg-zinc-100 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/40 ml-8"
+                  : "bg-white dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800/50"
               }`}
             >
-              <div className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600 mb-2">
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-600 mb-2">
                 {t.role === "human" ? "You" : "Assistant"}
               </div>
               {t.role === "human" ? (
-                <div className="text-sm leading-relaxed text-zinc-300 whitespace-pre-wrap">
+                <div className="text-sm leading-relaxed text-zinc-900 dark:text-zinc-300 whitespace-pre-wrap">
                   {t.text}
                 </div>
               ) : (
@@ -209,10 +205,10 @@ export default function ChatBox({ models, overview, papers, topic, turns, onTurn
               )}
               {t.role === "assistant" && t.sources && t.sources.length > 0 && (
                 <details className="text-xs mt-3">
-                  <summary className="cursor-pointer text-zinc-600 hover:text-zinc-400 transition-colors select-none">
+                  <summary className="cursor-pointer text-zinc-500 dark:text-zinc-600 hover:text-zinc-800 dark:hover:text-zinc-400 transition-colors select-none">
                     {t.sources.length} source{t.sources.length !== 1 ? "s" : ""}
                   </summary>
-                  <ol className="mt-2 pl-4 space-y-1 text-zinc-500 list-decimal">
+                  <ol className="mt-2 pl-4 space-y-1 text-zinc-600 dark:text-zinc-500 list-decimal">
                     {t.sources.map((s, j) => (
                       <li key={j}>
                         {s.metadata.url ? (
@@ -220,7 +216,7 @@ export default function ChatBox({ models, overview, papers, topic, turns, onTurn
                             href={s.metadata.url}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-indigo-400 hover:text-indigo-300 underline-offset-2 hover:underline transition-colors"
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline-offset-2 hover:underline transition-colors"
                           >
                             {s.metadata.title || s.metadata.url}
                           </a>
@@ -236,8 +232,8 @@ export default function ChatBox({ models, overview, papers, topic, turns, onTurn
           ))}
 
           {busy && (
-            <div className="rounded-xl px-4 py-4 bg-zinc-900/20 border border-zinc-800/50">
-              <div className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600 mb-2">
+            <div className="rounded-xl px-4 py-4 bg-white dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800/50 shadow-sm">
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-600 mb-2">
                 Assistant
               </div>
               <div className="dot-loader">
@@ -247,7 +243,7 @@ export default function ChatBox({ models, overview, papers, topic, turns, onTurn
           )}
 
           {error && (
-            <p className="text-red-400 text-sm bg-red-950/20 border border-red-900/30 rounded-xl px-4 py-3">
+            <p className="text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl px-4 py-3 shadow-sm">
               {error}
             </p>
           )}
@@ -266,13 +262,13 @@ export default function ChatBox({ models, overview, papers, topic, turns, onTurn
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(); } }}
           placeholder="Ask anything about the topic, papers, or gaps…"
-          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500/60 transition-all"
+          className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 transition-all shadow-sm"
           disabled={busy}
         />
         <button
           type="submit"
           disabled={busy || !input.trim()}
-          className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:bg-zinc-800 disabled:text-zinc-600 text-white text-xs font-semibold rounded-xl transition-colors"
+          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-zinc-100 dark:disabled:bg-zinc-800 disabled:text-zinc-400 dark:disabled:text-zinc-600 text-white text-sm font-medium rounded-xl transition-colors shadow-sm"
         >
           Ask
         </button>

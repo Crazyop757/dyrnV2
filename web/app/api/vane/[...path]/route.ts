@@ -14,7 +14,7 @@
  * of silently hanging.
  */
 
-const VANE_URL = process.env.VANE_URL || "http://localhost:3000";
+
 
 // Run on the Node runtime (not Edge) so we have full network primitives.
 export const runtime = "nodejs";
@@ -23,6 +23,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 async function proxy(req: Request, pathParts: string[]) {
+  const VANE_URL = process.env.VANE_URL || "http://localhost:3000";
   const search = new URL(req.url).search;
   const target = `${VANE_URL}/api/${pathParts.join("/")}${search}`;
 

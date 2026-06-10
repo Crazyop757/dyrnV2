@@ -1,13 +1,18 @@
 # Research MVP
 
-A single-page research assistant. Enter a topic, and the page shows:
-1. A short concept overview (what the topic is, with cited sources)
-2. A list of related papers with direct links
-3. A 2D graph of how the papers relate to each other
-4. A chat box for follow-up questions (uses the above as context)
+A comprehensive, single-page research assistant. Enter a topic, and the page dynamically generates:
+1. **Concept Overview** — a short summary with cited sources
+2. **Papers List** — related papers with summaries, links, and citation counts
+3. **Floating UI Dock** providing deep-dive capabilities:
+   - **Gap Analysis** — find structural, methodological, and evidentiary gaps
+   - **Literature Review** — generate publication-ready reviews
+   - **Extraction Matrix** — compare methodologies and variables across papers
+   - **Coverage Saturation** — measure how much of the citation network you've covered
+   - **Relation Graphs** — interactive 2D graph of how papers relate
+   - **Ask Follow-ups** — a floating chat interface to question the literature
 
 Built by integrating three open-source projects:
-- **[Perplexica / Vane](https://github.com/ItzCrazyKns/Perplexica)** — provides the concept overview and the follow-up chat
+- **[Perplexica / Vane](https://github.com/ItzCrazyKns/Perplexica)** — provides the concept overview, gap analysis text, literature reviews, and follow-up chat
 - **[Academix](https://github.com/xingyulu23/Academix)** — its source-clients code (OpenAlex, Semantic Scholar, arXiv) is reused for the paper list
 - **[SpiderPDF](https://github.com/overlorde/spiderpdf)** — its graph-building logic (bibliographic coupling + co-citation) is reused for the relations graph
 
@@ -91,11 +96,11 @@ redacts provider keys before responses leave the server.)
 ## How to use it
 
 - Type a research topic in the box (e.g. "graph neural networks for drug discovery") and press Search.
-- Wait ~10 seconds. The four sections populate:
+- Wait ~10 seconds. The top sections populate:
   - **Concept overview** — a short summary with source links
   - **Related papers** — ~15 papers with title, authors, year, link
-  - **Relations graph** — interactive 2D graph; click a node to highlight
-  - **Ask follow-ups** — type a question; the answer is grounded in the above
+- Use the **Floating Dock** at the bottom of the screen to expand into deeper analyses:
+  - **Gap Analysis, Literature Review, Extraction Matrix, Coverage Saturation, Relation Graphs, Ask Follow-ups**
 
 ## Services
 
@@ -118,7 +123,13 @@ tp/
 
 ## Status
 
-This is an MVP. Roadmap after the core flow works end-to-end:
-- Research-gap finder (button under the graph)
+We've evolved from a simple MVP to a comprehensive deep-dive research tool.
+Recently completed features:
+- Research-gap finder
+- Literature review generation
+- Coverage saturation tracking
+- UI Refactoring (Masonry grid to 2-col masonry, floating glassmorphism dock and cards)
+
+Roadmap:
 - Save/load sessions
 - Filter the graph by year / citation count
